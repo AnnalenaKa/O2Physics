@@ -220,7 +220,7 @@ struct CandidateTreeWriter {
                            float FunctionY,
                            float FunctionE) {
         double pseudoRndm = trackPos1.pt() * 1000. - (long)(trackPos1.pt() * 1000);
-        if (std::abs(candidate.flagMCMatchRec()) >= isSignal&& pseudoRndm < donwSampleBkgFactor) {
+        if (std::abs(candidate.flagMCMatchRec()) >= isSignal && pseudoRndm < donwSampleBkgFactor) {
           rowCandidateFull(
             trackPos1.collision().bcId(),
             trackPos1.collision().numContrib(),
@@ -347,7 +347,7 @@ struct CandidateTreeWriter {
                            float FunctionY,
                            float FunctionE) {
         double pseudoRndm = trackPos1.pt() * 1000. - (long)(trackPos1.pt() * 1000);
-        if ( pseudoRndm < donwSampleBkgFactor) {
+        if (pseudoRndm < donwSampleBkgFactor) {
           rowCandidateFull(
             trackPos1.collision().bcId(),
             trackPos1.collision().numContrib(),
