@@ -116,9 +116,9 @@ DECLARE_SOA_TABLE(ReducedTracks, "AOD", "REDUCEDTRACK", //!
 
 // barrel track information
 DECLARE_SOA_TABLE(ReducedTracksBarrel, "AOD", "RTBARREL", //!
-                  track::TPCInnerParam, track::Flags,     // tracking status flags
+                  track::TPCInnerParam, track::TPCTgl, track::TPCSigned1Pt,  track::Flags,     // tracking status flags
                   track::ITSClusterMap, track::ITSChi2NCl,
-                  track::TPCNClsFindable, track::TPCNClsFindableMinusFound, track::TPCNClsFindableMinusCrossedRows,
+                  track::TPCNClsFindable, track::TPCNClsdEdx, track::TPCNClsdEdxIROC, track::TPCNClsdEdxOROC1, track::TPCNClsdEdxOROC2, track::TPCNClsdEdxOROC3, track::TPCNClsFindableMinusFound, track::TPCNClsFindableMinusCrossedRows,
                   track::TPCNClsShared, track::TPCChi2NCl,
                   track::TRDChi2, track::TRDPattern, track::TOFChi2, track::Length, reducedtrack::DcaXY, reducedtrack::DcaZ,
                   track::TPCNClsFound<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
@@ -135,6 +135,7 @@ DECLARE_SOA_TABLE(ReducedTracksBarrelCov, "AOD", "RTBARRELCOV", //!
 // barrel PID information
 DECLARE_SOA_TABLE(ReducedTracksBarrelPID, "AOD", "RTBARRELPID", //!
                   track::TPCSignal,
+                  track::TPCSignalIROC, track::TPCSignalOROC1, track::TPCSignalOROC2, track::TPCSignalOROC3,
                   pidtpc::TPCNSigmaEl, pidtpc::TPCNSigmaMu,
                   pidtpc::TPCNSigmaPi, pidtpc::TPCNSigmaKa, pidtpc::TPCNSigmaPr,
                   pidtofbeta::Beta,

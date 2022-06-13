@@ -429,12 +429,16 @@ struct TableMakerMC {
           }
 
           trackBasic(event.lastIndex(), trackFilteringTag, track.pt(), track.eta(), track.phi(), track.sign());
-          trackBarrel(track.tpcInnerParam(), track.flags(), track.itsClusterMap(), track.itsChi2NCl(),
-                      track.tpcNClsFindable(), track.tpcNClsFindableMinusFound(), track.tpcNClsFindableMinusCrossedRows(),
+          trackBarrel(track.tpcInnerParam(), track.tpcTgl(), track.tpcSigned1Pt(), track.flags(), track.itsClusterMap(), track.itsChi2NCl(),
+                      track.tpcNClsFindable(), track.tpcNClsdEdx(), track.tpcNClsdEdxIROC(), track.tpcNClsdEdxOROC1(), track.tpcNClsdEdxOROC2(), track.tpcNClsdEdxOROC3(), track.tpcNClsFindableMinusFound(), track.tpcNClsFindableMinusCrossedRows(),
                       track.tpcNClsShared(), track.tpcChi2NCl(),
                       track.trdChi2(), track.trdPattern(), track.tofChi2(),
                       track.length(), track.dcaXY(), track.dcaZ());
           trackBarrelPID(track.tpcSignal(),
+                         track.tpcSignalIROC(), 
+                         track.tpcSignalOROC1(),
+                         track.tpcSignalOROC2(),
+                         track.tpcSignalOROC3(),
                          track.tpcNSigmaEl(), track.tpcNSigmaMu(),
                          track.tpcNSigmaPi(), track.tpcNSigmaKa(), track.tpcNSigmaPr(),
                          track.beta(),

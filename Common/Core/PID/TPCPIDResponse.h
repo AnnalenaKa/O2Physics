@@ -78,6 +78,9 @@ class Response
   float GetSignalDelta(const TrackType& trk, const o2::track::PID::ID id) const;
   /// Gets relative dEdx resolution contribution due to relative pt resolution
   float GetRelativeResolutiondEdx(const float p, const float mass, const float charge, const float resol) const;
+  // Gets the TPC probability
+  template <typename CollisionType, typename TrackType>
+  float ComputeTPCProbability(const CollisionType& collision, const TrackType& track, const o2::track::PID::ID id) const;
 
   void PrintAll() const;
 
@@ -108,18 +111,18 @@ inline float Response::GetExpectedSigma(const CollisionType& collision, const Tr
 {
   float resolution = 0.;
   if (mUseDefaultResolutionParam) {
-    const float reso = track.tpcSignal() * mResolutionParamsDefault[0] * ((float)track.tpcNClsFound() > 0 ? std::sqrt(1. + mResolutionParamsDefault[1] / (float)track.tpcNClsFound()) : 1.f);
+    const float reso = track.tpcSignal() * mResolutionParamsDefault[0] * ((float)track.tpcNClsdEdx() > 0 ? std::sqrt(1. + mResolutionParamsDefault[1] / (float)track.tpcNClsFound()) : 1.f);
     reso >= 0.f ? resolution = reso : resolution = 0.f;
   } else {
 
-    const double ncl = 159. / track.tpcNClsFound(); //
+    const double ncl = 159. / track.tpcNClsdEdx(); //
     const double p = track.tpcInnerParam();
     const double mass = o2::track::pid_constants::sMasses[id];
     const double bg = p / mass;
     const double dEdx = o2::tpc::BetheBlochAleph((float)bg, mBetheBlochParams[0], mBetheBlochParams[1], mBetheBlochParams[2], mBetheBlochParams[3], mBetheBlochParams[4]) * std::pow((float)o2::track::pid_constants::sCharges[id], mChargeFactor);
     const double relReso = GetRelativeResolutiondEdx(p, mass, o2::track::pid_constants::sCharges[id], mResolutionParams[3]);
 
-    const std::vector<double> values{1.f / dEdx, track.tgl(), std::sqrt(ncl), relReso, track.signed1Pt(), collision.multTPC() / mMultNormalization};
+    const std::vector<double> values{1.f / dEdx, track.tpcTgl(), std::sqrt(ncl), relReso, track.tpcSigned1Pt(), collision.multTPC() / mMultNormalization};
 
     const float reso = sqrt(pow(mResolutionParams[0], 2) * values[0] + pow(mResolutionParams[1], 2) * (values[2] * mResolutionParams[5]) * pow(values[0] / sqrt(1 + pow(values[1], 2)), mResolutionParams[2]) + values[2] * pow(values[3], 2) + pow(mResolutionParams[4] * values[4], 2) + pow(values[5] * mResolutionParams[6], 2) + pow(values[5] * (values[0] / sqrt(1 + pow(values[1], 2))) * mResolutionParams[7], 2)) * dEdx * mMIP;
     reso >= 0.f ? resolution = reso : resolution = 0.f;
@@ -151,6 +154,33 @@ inline float Response::GetRelativeResolutiondEdx(const float p, const float mass
   const float dEdx2 = o2::tpc::BetheBlochAleph(bgDelta, mBetheBlochParams[0], mBetheBlochParams[1], mBetheBlochParams[2], mBetheBlochParams[3], mBetheBlochParams[4]) * std::pow(charge, mChargeFactor);
   const float deltaRel = std::abs(dEdx2 - dEdx) / dEdx;
   return deltaRel;
+}
+
+// Computes PID probabilities for the TPC
+template <typename CollisionType, typename TrackType>
+inline float Response::ComputeTPCProbability(const CollisionType& collision, const TrackType& track, const o2::track::PID::ID id) const
+{
+  float Probability = 0.;
+  float fRange = 5.f;
+  const float dedx = track.tpcSignal();
+  bool mismatch = true;
+
+  const float bethe = GetExpectedSignal(track, id);
+  const float sigma = GetExpectedSigma(collision, track, id);
+
+  if (abs(dedx - bethe) > fRange * sigma) {
+    Probability = exp(-0.5 * fRange * fRange);
+  } else {
+    Probability = exp(-0.5 * (dedx - bethe) * (dedx - bethe) / (sigma * sigma));
+    mismatch = false;
+  }
+  if (Probability <= 0.f) {
+    Probability = 0.f;
+  }
+  if (mismatch) {
+    Probability = 1.f / 9.;
+  }
+  return Probability;
 }
 
 inline void Response::PrintAll() const
