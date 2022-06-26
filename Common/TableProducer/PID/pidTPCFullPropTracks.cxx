@@ -26,6 +26,7 @@
 #include "Framework/AnalysisTask.h"
 #include "ReconstructionDataFormats/Track.h"
 #include "ReconstructionDataFormats/TrackParametrization.h"
+#include "ReconstructionDataFormats/DCA.h"
 #include <CCDB/BasicCCDBManager.h>
 #include "DataFormatsParameters/GRPObject.h"
 #include "DetectorsBase/GeometryManager.h"
@@ -35,6 +36,9 @@
 #include "Common/Core/trackUtilities.h"
 #include "Framework/AnalysisDataModel.h"
 #include "Common/DataModel/Multiplicity.h"
+#include "Common/DataModel/TrackSelectionTables.h"
+#include "Common/Core/TrackSelection.h"
+#include "Common/Core/TrackSelectionDefaults.h"
 #include "TableHelper.h"
 #include "Common/TableProducer/PID/pidTPCML.h"
 #include "DPG/Tasks/qaPIDTPC.h"
@@ -71,6 +75,10 @@ DECLARE_SOA_COLUMN(ShiftX, shiftx, float);
 DECLARE_SOA_COLUMN(CID, cid, float);
 DECLARE_SOA_COLUMN(PID, pid, float);
 DECLARE_SOA_COLUMN(TrackType, tracktype, float);
+DECLARE_SOA_COLUMN(HasITS, hasITS, bool);                                                //! Track has the ITS
+DECLARE_SOA_COLUMN(HasTPC, hasTPC, bool);                                                //! Track has the TPC
+DECLARE_SOA_COLUMN(HasTRD, hasTRD, bool);                                                //! Track has the TRD
+DECLARE_SOA_COLUMN(HasTOF, hasTOF, bool);  
 
 DECLARE_SOA_COLUMN(X, x, float);
 DECLARE_SOA_COLUMN(Y, y, float);
@@ -96,6 +104,7 @@ DECLARE_SOA_COLUMN(P2, p2, float);
 DECLARE_SOA_COLUMN(Eta2, eta2, float);
 DECLARE_SOA_COLUMN(Phi2, phi2, float);
 
+DECLARE_SOA_COLUMN(BG, bg, float);
 
 
 
@@ -109,10 +118,19 @@ DECLARE_SOA_TABLE(TPCTree, "AOD", "TPCTREE",
                   tpc::NormMultTPC,
                   tpc::NClustersTPC,
                   o2::aod::track::TPCNClsdEdx,
+                  o2::aod::track::TPCSignal,
+                  tpc::BG,
+                  o2::aod::track::Phi,
+                  track::DcaXY,
+                  track::DcaZ,
                   tpc::ShiftX,
                   tpc::CID,
                   tpc::PID,
                   tpc::TrackType,
+                  tpc::HasITS,
+                  tpc::HasTPC,
+                  tpc::HasTRD,
+                  tpc::HasTOF,
                   tpc::X,
                   tpc::Y,
                   tpc::Z,
@@ -151,7 +169,7 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
 
 /// Task to produce the response table
 struct tpcPidFullPropTracks {
-  using Trks = soa::Join<aod::Tracks, aod::TracksExtra>;
+  using Trks = soa::Join<aod::Tracks, aod::TracksExtra, aod::FullTracks,  aod::TrackSelection, aod::TracksExtended>;
   using Coll = soa::Join<aod::Collisions, aod::Mults>;
 
   // Tables to produce
@@ -171,6 +189,7 @@ struct tpcPidFullPropTracks {
   o2::pid::tpc::Response* responseptr = nullptr;
   // Network correction for TPC PID response
   Network network;
+  int runNumber = -1;
 
   // Input parameters
     // Input parameters
@@ -239,9 +258,6 @@ struct tpcPidFullPropTracks {
     matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
     if (!o2::base::GeometryManager::isGeometryLoaded()) {
       ccdb->get<TGeoManager>(geoPath);
-      grpo = ccdb->getForTimeStamp<o2::parameters::GRPObject>(grpPath, analysis::trackpropagation::run3grp_timestamp);
-      o2::base::Propagator::initFieldFromGRP(grpo);
-      o2::base::Propagator::Instance()->setMatLUT(lut);
     }
 
     const TString fname = paramfile.value;
@@ -280,9 +296,26 @@ struct tpcPidFullPropTracks {
     }
   }
 
-  void process(Coll const& collisions, Trks const& tracks,
-               aod::BCsWithTimestamps const&)
+  void initCCDB(aod::BCsWithTimestamps::iterator const& bc)
   {
+    if (runNumber == bc.runNumber()) {
+      return;
+    }
+    grpo = ccdb->getForTimeStamp<o2::parameters::GRPObject>(grpPath, bc.timestamp());
+    LOGF(info, "Setting magnetic field to %d kG for run %d from its GRP CCDB object", grpo->getNominalL3Field(), bc.runNumber());
+    o2::base::Propagator::initFieldFromGRP(grpo);
+    o2::base::Propagator::Instance()->setMatLUT(lut);
+    runNumber = bc.runNumber();
+  }
+
+  void process(Coll const& collisions, Trks const& tracks,
+               aod::BCsWithTimestamps const& bcs)
+  {
+    if (bcs.size() == 0) {
+      return;
+    }
+    initCCDB(bcs.begin());
+
     auto reserveTable = [&tracks](const Configurable<int>& flag, auto& table) {
       if (flag.value != 1) {
         return;
@@ -348,170 +381,177 @@ struct tpcPidFullPropTracks {
 
     for (auto const& trk : tracks) {
       // Loop on Tracks
-      if (trk.hasTPC() && !trk.hasITS()) {
-
-        if (useCCDBParam && ccdbTimestamp.value == 0 && trk.has_collision() && trk.collisionId() != lastCollisionId) { // Updating parametrization only if the initial timestamp is 0
-          lastCollisionId = trk.collisionId();
-          const auto& bc = collisions.iteratorAt(trk.collisionId()).bc_as<aod::BCsWithTimestamps>();
-          response.SetParameters(ccdb->getForTimeStamp<o2::pid::tpc::Response>(ccdbPath.value, bc.timestamp()));
-        }
-        // Propagate tracks to the inner wall of the TPC
-        float xtogo = 0;
-        float Bz = o2::base::Propagator::Instance()->getNominalBz();
-        auto trackParInit = getTrackPar(trk);
-        
-        auto trackPar = getTrackPar(trk);
-
-        std::array<float, 9> Probability;
-        Probability[0] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Electron);
-        Probability[1] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Muon);
-        Probability[2] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Pion);
-        Probability[3] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Kaon);
-        Probability[4] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Proton);
-        Probability[5] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Deuteron);
-        Probability[6] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Triton);
-        Probability[7] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Helium3);
-        Probability[8] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Alpha);
-
-        if(!trk.hasTPC()){trackPar.setPID(o2::track::PID::Pion);}
-        // find max probability
-        Float_t max=0.,min=1.e9;
-        Int_t pid=-1;
-        for (Int_t i=0; i<9; i++) {
-          if (Probability[i]>max) {pid=i; max=Probability[i];}
-          if (Probability[i]<min) min=Probability[i];
-        }
-        if(pid==-1) {trackPar.setPID(o2::track::PID::Pion);}
-        if (pid==0) { // dE/dx "crossing points" in the TPC
-          Double_t p = trackPar.getP();
-          if ((p>0.38)&&(p<0.48)) {
-            if (Probability[0]<Probability[3]*10.) {trackPar.setPID(o2::track::PID::Kaon);}
-            else {trackPar.setPID(o2::track::PID::Electron);}
-          }
-          else if ((p>0.75)&&(p<0.85)) {
-            if (Probability[0]<Probability[4]*10.) {trackPar.setPID(o2::track::PID::Proton);}
-            else {trackPar.setPID(o2::track::PID::Electron);}
-          }
-        }
-
-        if(pid==1) {trackPar.setPID(o2::track::PID::Muon);}
-        if(pid==2) {trackPar.setPID(o2::track::PID::Pion);}
-        if(pid==3) {trackPar.setPID(o2::track::PID::Kaon);}
-        if(pid==4) {trackPar.setPID(o2::track::PID::Proton);}
-        if(pid==5) {trackPar.setPID(o2::track::PID::Deuteron);}
-        if(pid==6) {trackPar.setPID(o2::track::PID::Triton);}
-        if(pid==7) {trackPar.setPID(o2::track::PID::Helium3);}
-        if(pid==8) {trackPar.setPID(o2::track::PID::Alpha);}
-
-        if (min>=max) {trackPar.setPID(o2::track::PID::Pion);}
-
-        if (!trackPar.getXatLabR(83., xtogo, Bz, DirOutward ) ||
-        !o2::base::Propagator::Instance()->PropagateToXBxByBz(trackPar, xtogo, MaxSnp, 10., matCorr)) {
-          LOG(debug) << "Propagation to inner TPC boundary X=" << xtogo << " failed.";
-        }
-
-        // Check and fill enabled tables
-        auto makeTable = [&trk, &collisions, &network_prediction, &count_tracks, &tracks_size, this](const Configurable<int>& flag, auto& table, const o2::track::PID::ID pid) {
-          if (flag.value != 1) {
-            return;
-          }
-
-          if (useNetworkCorrection) {
-            table(response.GetExpectedSigma(collisions.iteratorAt(trk.collisionId()), trk, pid),
-                  (trk.tpcSignal() - (network_prediction[count_tracks + tracks_size * pid]) * response.GetExpectedSignal(trk, pid)) / response.GetExpectedSigma(collisions.iteratorAt(trk.collisionId()), trk, pid));
-          } else {
-            table(response.GetExpectedSigma(collisions.iteratorAt(trk.collisionId()), trk, pid),
-                  response.GetNumberOfSigma(collisions.iteratorAt(trk.collisionId()), trk, pid));
-          }
-        };
-
-        // const o2::pid::tpc::Response& response;
-        makeTable(pidEl, tablePIDEl, o2::track::PID::Electron);
-        makeTable(pidMu, tablePIDMu, o2::track::PID::Muon);
-        makeTable(pidPi, tablePIDPi, o2::track::PID::Pion);
-        makeTable(pidKa, tablePIDKa, o2::track::PID::Kaon);
-        makeTable(pidPr, tablePIDPr, o2::track::PID::Proton);
-        makeTable(pidDe, tablePIDDe, o2::track::PID::Deuteron);
-        makeTable(pidTr, tablePIDTr, o2::track::PID::Triton);
-        makeTable(pidHe, tablePIDHe, o2::track::PID::Helium3);
-        makeTable(pidAl, tablePIDAl, o2::track::PID::Alpha);
-
-        auto fillTPCTable = [&trk, trackPar, trackParInit, Probability, &collisions, this] (auto& tableTPCTree)
-        {
-
-          const double ncl = trk.tpcNClsFound();
-          const int multTPC = collisions.iteratorAt(trk.collisionId()).multTPC();
-          const float pDiff = trk.tpcInnerParam() - trackPar.getP();
-          const float pShift = trackParInit.getP() - trackPar.getP();
-          const float shiftx = trackParInit.getX() - trackPar.getX();
-
-
-          // if (pDiff < -1. &&  trk.tpcInnerParam()!=0.)
-          // {
-          //   cout << "Track parameters before propagation" << endl;
-          //   trackParInit.printParam();
-          //   cout << "Track parameters after propagation" << endl;
-          //   trackPar.printParam(); 
-          //   cout << "tpcInnerParam: " << trk.tpcInnerParam() << endl;
-          //   cout << "flags: " << trk.flags() << endl;
-          //   cout << "hasITS: " << trk.hasITS() << endl;
-          //   cout << "hasTPC: " << trk.hasTPC() << endl;
-          //   cout << "Probability[0] " << Probability[0] << endl;
-          //   cout << "Probability[1] " << Probability[1] << endl;
-          //   cout << "Probability[2] " << Probability[2] << endl;
-          //   cout << "Probability[3] " << Probability[3] << endl;
-          //   cout << "Probability[4] " << Probability[4] << endl;
-          //   cout << "Probability[5] " << Probability[5] << endl;
-          //   cout << "Probability[6] " << Probability[6] << endl;
-          //   cout << "Probability[7] " << Probability[7] << endl;
-          //   cout << "Probability[8] " << Probability[8] << endl; 
-
-          // }
-          
-
-          
-
-          tableTPCTree(
-                      trk.tpcInnerParam(),
-                      trk.tpcTgl(),
-                      trk.tpcSigned1Pt(),
-                      pDiff,
-                      pShift,
-                      multTPC / 11000.,
-                      ncl,
-                      trk.tpcNClsdEdx(),
-                      shiftx,
-                      trk.collisionId(),
-                      trackParInit.getPID(),
-                      trk.trackType(),
-                      trackParInit.getX(),
-                      trackParInit.getY(),
-                      trackParInit.getZ(),
-                      trackParInit.getAlpha(),
-                      trackParInit.getSnp(),
-                      trackParInit.getTgl(),
-                      trackParInit.getQ2Pt(),
-                      trackParInit.getPt(),
-                      trackParInit.getP(),
-                      trackParInit.getEta(),
-                      trackParInit.getPhi(),
-                      trackPar.getX(),
-                      trackPar.getY(),
-                      trackPar.getZ(),
-                      trackPar.getAlpha(),
-                      trackPar.getSnp(),
-                      trackPar.getTgl(),
-                      trackPar.getQ2Pt(),
-                      trackPar.getPt(),
-                      trackPar.getP(),
-                      trackPar.getEta(),
-                      trackPar.getPhi());
-          
-        };
-        fillTPCTable(rowTPCTree);
-
-        count_tracks++;
+      if (useCCDBParam && ccdbTimestamp.value == 0 && trk.has_collision() && trk.collisionId() != lastCollisionId) { // Updating parametrization only if the initial timestamp is 0
+        lastCollisionId = trk.collisionId();
+        const auto& bc = collisions.iteratorAt(trk.collisionId()).bc_as<aod::BCsWithTimestamps>();
+        response.SetParameters(ccdb->getForTimeStamp<o2::pid::tpc::Response>(ccdbPath.value, bc.timestamp()));
       }
+      // Propagate tracks to the inner wall of the TPC
+      float xtogo = 0;
+      float Bz = o2::base::Propagator::Instance()->getNominalBz();
+      auto trackParInit = getTrackPar(trk);
+      
+      auto trackPar = getTrackPar(trk);
+
+      std::array<float, 9> Probability;
+      Probability[0] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Electron);
+      Probability[1] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Muon);
+      Probability[2] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Pion);
+      Probability[3] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Kaon);
+      Probability[4] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Proton);
+      Probability[5] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Deuteron);
+      Probability[6] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Triton);
+      Probability[7] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Helium3);
+      Probability[8] = response.ComputeTPCProbability(collisions.iteratorAt(trk.collisionId()), trk, o2::track::PID::Alpha);
+
+      if(!trk.hasTPC()){trackPar.setPID(o2::track::PID::Pion);}
+      // find max probability
+      Float_t max=0.,min=1.e9;
+      Int_t pid=-1;
+      for (Int_t i=0; i<9; i++) {
+        if (Probability[i]>max) {pid=i; max=Probability[i];}
+        if (Probability[i]<min) min=Probability[i];
+      }
+      if(pid==-1) {trackPar.setPID(o2::track::PID::Pion);}
+      if (pid==0) { // dE/dx "crossing points" in the TPC
+        Double_t p = trackPar.getP();
+        if ((p>0.38)&&(p<0.48)) {
+          if (Probability[0]<Probability[3]*10.) {trackPar.setPID(o2::track::PID::Kaon);}
+          else {trackPar.setPID(o2::track::PID::Electron);}
+        }
+        else if ((p>0.75)&&(p<0.85)) {
+          if (Probability[0]<Probability[4]*10.) {trackPar.setPID(o2::track::PID::Proton);}
+          else {trackPar.setPID(o2::track::PID::Electron);}
+        }
+      }
+
+      if(pid==1) {trackPar.setPID(o2::track::PID::Muon);}
+      if(pid==2) {trackPar.setPID(o2::track::PID::Pion);}
+      if(pid==3) {trackPar.setPID(o2::track::PID::Kaon);}
+      if(pid==4) {trackPar.setPID(o2::track::PID::Proton);}
+      if(pid==5) {trackPar.setPID(o2::track::PID::Deuteron);}
+      if(pid==6) {trackPar.setPID(o2::track::PID::Triton);}
+      if(pid==7) {trackPar.setPID(o2::track::PID::Helium3);}
+      if(pid==8) {trackPar.setPID(o2::track::PID::Alpha);}
+
+      if (min>=max) {trackPar.setPID(o2::track::PID::Pion);}
+
+      if (!trackPar.getXatLabR(83., xtogo, Bz, DirOutward ) ||
+      !o2::base::Propagator::Instance()->PropagateToXBxByBz(trackPar, xtogo, MaxSnp, 10., matCorr)) {
+        LOG(debug) << "Propagation to inner TPC boundary X=" << xtogo << " failed.";
+      }
+
+      // Check and fill enabled tables
+      auto makeTable = [&trk, &collisions, &network_prediction, &count_tracks, &tracks_size, this](const Configurable<int>& flag, auto& table, const o2::track::PID::ID pid) {
+        if (flag.value != 1) {
+          return;
+        }
+
+        if (useNetworkCorrection) {
+          table(response.GetExpectedSigma(collisions.iteratorAt(trk.collisionId()), trk, pid),
+                (trk.tpcSignal() - (network_prediction[count_tracks + tracks_size * pid]) * response.GetExpectedSignal(trk, pid)) / response.GetExpectedSigma(collisions.iteratorAt(trk.collisionId()), trk, pid));
+        } else {
+          table(response.GetExpectedSigma(collisions.iteratorAt(trk.collisionId()), trk, pid),
+                response.GetNumberOfSigma(collisions.iteratorAt(trk.collisionId()), trk, pid));
+        }
+      };
+
+      // const o2::pid::tpc::Response& response;
+      makeTable(pidEl, tablePIDEl, o2::track::PID::Electron);
+      makeTable(pidMu, tablePIDMu, o2::track::PID::Muon);
+      makeTable(pidPi, tablePIDPi, o2::track::PID::Pion);
+      makeTable(pidKa, tablePIDKa, o2::track::PID::Kaon);
+      makeTable(pidPr, tablePIDPr, o2::track::PID::Proton);
+      makeTable(pidDe, tablePIDDe, o2::track::PID::Deuteron);
+      makeTable(pidTr, tablePIDTr, o2::track::PID::Triton);
+      makeTable(pidHe, tablePIDHe, o2::track::PID::Helium3);
+      makeTable(pidAl, tablePIDAl, o2::track::PID::Alpha);
+
+      auto fillTPCTable = [&trk, trackPar, trackParInit, Probability, &collisions, this] (auto& tableTPCTree)
+      {
+
+        const double ncl = trk.tpcNClsFound();
+        const int multTPC = collisions.iteratorAt(trk.collisionId()).multTPC();
+        const float pDiff = trk.tpcInnerParam() - trackPar.getP();
+        const float pShift = trackParInit.getP() - trackPar.getP();
+        const float shiftx = trackParInit.getX() - trackPar.getX();
+        const float bg = trk.tpcInnerParam()/o2::track::pid_constants::sMasses[trackPar.getPID()];
+
+
+        // if (pDiff < -1. &&  trk.tpcInnerParam()!=0.)
+        // {
+        //   cout << "Track parameters before propagation" << endl;
+        //   trackParInit.printParam();
+        //   cout << "Track parameters after propagation" << endl;
+        //   trackPar.printParam(); 
+        //   cout << "tpcInnerParam: " << trk.tpcInnerParam() << endl;
+        //   cout << "flags: " << trk.flags() << endl;
+        //   cout << "hasITS: " << trk.hasITS() << endl;
+        //   cout << "hasTPC: " << trk.hasTPC() << endl;
+        //   cout << "Probability[0] " << Probability[0] << endl;
+        //   cout << "Probability[1] " << Probability[1] << endl;
+        //   cout << "Probability[2] " << Probability[2] << endl;
+        //   cout << "Probability[3] " << Probability[3] << endl;
+        //   cout << "Probability[4] " << Probability[4] << endl;
+        //   cout << "Probability[5] " << Probability[5] << endl;
+        //   cout << "Probability[6] " << Probability[6] << endl;
+        //   cout << "Probability[7] " << Probability[7] << endl;
+        //   cout << "Probability[8] " << Probability[8] << endl; 
+
+        // }
+        
+
+        
+
+        tableTPCTree(
+                    trk.tpcInnerParam(),
+                    trk.tpcTgl(),
+                    trk.tpcSigned1Pt(),
+                    pDiff,
+                    pShift,
+                    multTPC / 11000.,
+                    ncl,
+                    trk.tpcNClsdEdx(),
+                    trk.tpcSignal(),
+                    bg,
+                    trk.phi(),
+                    trk.dcaXY(),
+                    trk.dcaZ(),
+                    shiftx,
+                    trk.collisionId(),
+                    trackParInit.getPID(),
+                    trk.trackType(),
+                    trk.hasITS(),
+                    trk.hasTPC(),
+                    trk.hasTRD(),
+                    trk.hasTOF(),
+                    trackParInit.getX(),
+                    trackParInit.getY(),
+                    trackParInit.getZ(),
+                    trackParInit.getAlpha(),
+                    trackParInit.getSnp(),
+                    trackParInit.getTgl(),
+                    trackParInit.getQ2Pt(),
+                    trackParInit.getPt(),
+                    trackParInit.getP(),
+                    trackParInit.getEta(),
+                    trackParInit.getPhi(),
+                    trackPar.getX(),
+                    trackPar.getY(),
+                    trackPar.getZ(),
+                    trackPar.getAlpha(),
+                    trackPar.getSnp(),
+                    trackPar.getTgl(),
+                    trackPar.getQ2Pt(),
+                    trackPar.getPt(),
+                    trackPar.getP(),
+                    trackPar.getEta(),
+                    trackPar.getPhi());
+        
+      };
+      fillTPCTable(rowTPCTree);
+
+      count_tracks++;
     }
   }
 };

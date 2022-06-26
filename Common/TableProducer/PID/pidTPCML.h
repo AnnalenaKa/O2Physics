@@ -185,12 +185,12 @@ std::vector<float> Network::createInputFromTrack(const T& track, const uint8_t i
   */
 
   const float p = track.tpcInnerParam();
-  const float tgl = track.tgl();
-  const float signed1Pt = track.signed1Pt();
+  const float tgl = track.tpcTgl();
+  const float signed1Pt = track.tpcSigned1Pt();
   const float eta = track.eta();
   const float mass = o2::track::pid_constants::sMasses[id];
   const float bg = p / mass;
-  const float ncl = std::sqrt(159. / track.tpcNClsFound());
+  const float ncl = std::sqrt(159. / track.tpcNClsdEdx());
 
   std::vector<float> inputValues{p, tgl, signed1Pt, eta, mass, bg, ncl};
 
