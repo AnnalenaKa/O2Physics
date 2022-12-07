@@ -62,13 +62,12 @@ struct TreeWriterTpcV0 {
   Configurable<float> downsamplingTsalisProtons{"downsamplingTsalisProtons", -1., "Downsampling factor to reduce the number of protons"};
   Configurable<float> downsamplingTsalisElectrons{"downsamplingTsalisElectrons", -1., "Downsampling factor to reduce the number of electrons"};
 
-
   Filter trackFilter = (trackSelection.node() == 0) ||
-                      ((trackSelection.node() == 1) && requireGlobalTrackInFilter()) ||
-                      ((trackSelection.node() == 2) && requireGlobalTrackWoPtEtaInFilter()) ||
-                      ((trackSelection.node() == 3) && requireGlobalTrackWoDCAInFilter()) ||
-                      ((trackSelection.node() == 4) && requireQualityTracksInFilter()) ||
-                      ((trackSelection.node() == 5) && requireTrackCutInFilter(TrackSelectionFlags::kInAcceptanceTracks));
+                       ((trackSelection.node() == 1) && requireGlobalTrackInFilter()) ||
+                       ((trackSelection.node() == 2) && requireGlobalTrackWoPtEtaInFilter()) ||
+                       ((trackSelection.node() == 3) && requireGlobalTrackWoDCAInFilter()) ||
+                       ((trackSelection.node() == 4) && requireQualityTracksInFilter()) ||
+                       ((trackSelection.node() == 5) && requireTrackCutInFilter(TrackSelectionFlags::kInAcceptanceTracks));
 
   /// Funktion to fill skimmed tables
   template <typename T, typename C, typename V0>
@@ -239,11 +238,11 @@ struct TreeWriterTPCTOF {
   Configurable<float> downsamplingTsalisPions{"downsamplingTsalisPions", -1., "Downsampling factor to reduce the number of pions"};
 
   Filter trackFilter = (trackSelection.node() == 0) ||
-                    ((trackSelection.node() == 1) && requireGlobalTrackInFilter()) ||
-                    ((trackSelection.node() == 2) && requireGlobalTrackWoPtEtaInFilter()) ||
-                    ((trackSelection.node() == 3) && requireGlobalTrackWoDCAInFilter()) ||
-                    ((trackSelection.node() == 4) && requireQualityTracksInFilter()) ||
-                    ((trackSelection.node() == 5) && requireTrackCutInFilter(TrackSelectionFlags::kInAcceptanceTracks));
+                       ((trackSelection.node() == 1) && requireGlobalTrackInFilter()) ||
+                       ((trackSelection.node() == 2) && requireGlobalTrackWoPtEtaInFilter()) ||
+                       ((trackSelection.node() == 3) && requireGlobalTrackWoDCAInFilter()) ||
+                       ((trackSelection.node() == 4) && requireQualityTracksInFilter()) ||
+                       ((trackSelection.node() == 5) && requireTrackCutInFilter(TrackSelectionFlags::kInAcceptanceTracks));
 
   double tsalisCharged(double pt, double mass, double sqrts)
   {
