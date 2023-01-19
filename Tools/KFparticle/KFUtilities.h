@@ -233,4 +233,4 @@ float ldlXYFromKF(KFParticle kfpParticle, KFParticle PV)
   return l_particle / dl_particle;
 }
 
-#endif  // TOOLS_KFPARTICLE_KFUTILITIES_H_
+#endif // TOOLS_KFPARTICLE_KFUTILITIES_H_
