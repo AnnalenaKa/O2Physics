@@ -313,10 +313,10 @@ struct qaKFEventTrack {
     if (runNumber != bc.runNumber()) {
       initMagneticFieldCCDB(bc, runNumber, ccdb, isRun3 ? ccdbPathGrpMag : ccdbPathGrp, lut, isRun3);
       magneticField = o2::base::Propagator::Instance()->getNominalBz();
-      /// Set magnetic field for KF vertexing
-      #ifdef HomogeneousField
+/// Set magnetic field for KF vertexing
+#ifdef HomogeneousField
       KFParticle::SetField(magneticField);
-      #endif
+#endif
     }
     histos.fill(HIST("Events/covXX"), collision.covXX());
     histos.fill(HIST("Events/covXY"), collision.covXY());
@@ -399,10 +399,10 @@ struct qaKFEventTrack {
     if (runNumber != bc.runNumber()) {
       initMagneticFieldCCDB(bc, runNumber, ccdb, isRun3 ? ccdbPathGrpMag : ccdbPathGrp, lut, isRun3);
       magneticField = o2::base::Propagator::Instance()->getNominalBz();
-      /// Set magnetic field for KF vertexing
-      #ifdef HomogeneousField
+/// Set magnetic field for KF vertexing
+#ifdef HomogeneousField
       KFParticle::SetField(magneticField);
-      #endif
+#endif
     }
     /// Remove Collisions without a MC Collision
     if (!collision.has_mcCollision()) {
