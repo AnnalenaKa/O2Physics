@@ -751,12 +751,12 @@ struct qaKFParticle {
     selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxPi, nSigmaTofCombinedMaxPi);
 
     TrackSelectorPID selectorKaon(kKPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinKa, ptPidTpcMaxKa);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxKa, nSigmaTpcMaxKa);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxKa, nSigmaTpcCombinedMaxKa);
-    selectorPion.setRangePtTOF(ptPidTofMinKa, ptPidTofMaxKa);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxKa, nSigmaTofMaxKa);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxKa, nSigmaTofCombinedMaxKa);
+    selectorKaon.setRangePtTPC(ptPidTpcMinKa, ptPidTpcMaxKa);
+    selectorKaon.setRangeNSigmaTPC(-nSigmaTpcMaxKa, nSigmaTpcMaxKa);
+    selectorKaon.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxKa, nSigmaTpcCombinedMaxKa);
+    selectorKaon.setRangePtTOF(ptPidTofMinKa, ptPidTofMaxKa);
+    selectorKaon.setRangeNSigmaTOF(-nSigmaTofMaxKa, nSigmaTofMaxKa);
+    selectorKaon.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxKa, nSigmaTofCombinedMaxKa);
 
     for (auto& [track1, track2] : combinations(soa::CombinationsStrictlyUpperIndexPolicy(tracks, tracks))) {
 
