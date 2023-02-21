@@ -619,7 +619,8 @@ struct qaKFEvent {
                       runNumber,
                       timeColl,
                       timestamp,
-                      timeDiff);
+                      timeDiff,
+                      collision.bcId());
     }
   }
   /// Process function for data
@@ -628,9 +629,12 @@ struct qaKFEvent {
     double timeColl = 0;
     double timestamp = 0;
     double timeDiff = 0;
+    static size_t tfID = 0;
+    LOGP(info, "processing TF {}", tfID++);
 
     for (auto& collisionIndex : collisions) {
       auto bc = collisionIndex.bc_as<aod::BCsWithTimestamps>();
+      // LOGP(info, "{} vs {}", collisionIndex.bcId(), bc.globalIndex());
       if (runNumber != bc.runNumber()) {
         initMagneticFieldCCDB(bc, runNumber, ccdb, isRun3 ? ccdbPathGrpMag : ccdbPathGrp, lut, isRun3);
         magneticField = o2::base::Propagator::Instance()->getNominalBz();
