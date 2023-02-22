@@ -432,9 +432,14 @@ struct qaKFParticle {
         continue;
       }
 
-      KFPTrack kfpTrackPi;
-      KFPTrack kfpTrackKa;
-      KFPTrack kfpTrackPr;
+      KFPTrack kfpTrackNegKa;
+      KFPTrack kfpTrackPosPi;
+      KFPTrack kfpTrackPosPr;
+
+      KFPTrack kfpTrackPosKa;
+      KFPTrack kfpTrackNegPi;
+      KFPTrack kfpTrackNegPr;
+
 
       bool CandLc = false;
       bool CandLcbar = false;
@@ -456,6 +461,69 @@ struct qaKFParticle {
       int pidProtonTr1 = selectorProton.getStatusTrackPIDAll(track1);
       int pidProtonTr2 = selectorProton.getStatusTrackPIDAll(track2);
       int pidProtonTr3 = selectorProton.getStatusTrackPIDAll(track3);
+
+      /// Selection Lc
+      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr3 == TrackSelectorPID::Status::PIDAccepted) {
+        if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == 1) {
+          // Lc
+          /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+
+        } else if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == -1) {
+          // Lc Bar
+          /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+        }
+      }
+      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr2 == TrackSelectorPID::Status::PIDAccepted && pidPionTr3 == TrackSelectorPID::Status::PIDAccepted) {
+        if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == 1) {
+          // Lc
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+
+        } else if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == -1) {
+          // Lc bar
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+        }
+      }
+      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr3 == TrackSelectorPID::Status::PIDAccepted) {
+        if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == 1) {
+          // Lc
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+
+        } else if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == -1) {
+          // Lc bar
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+        }
+      }
+      if (pidProtonTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted && pidPionTr3 == TrackSelectorPID::Status::PIDAccepted) {
+        if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == 1) {
+          // Lc
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+
+        } else if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == -1) {
+          // Lc bar
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+        }
+      }
+      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr3 == TrackSelectorPID::Status::PIDAccepted) {
+        if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == 1) {
+          // Lc
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+
+        } else if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == -1) {
+          // Lc bar
+                    /// Function Reconstruct Lc
+          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+        }
+      }
+
 
       /// Select Lc and Lcbar candidates
       if (pidProtonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr3 == TrackSelectorPID::Status::PIDAccepted) {
