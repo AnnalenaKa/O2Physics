@@ -23,6 +23,9 @@
 #include "CCDB/BasicCCDBManager.h"
 #include "CommonDataFormat/InteractionRecord.h"
 #include "DetectorsRaw/HBFUtils.h"
+#include <iostream>
+
+using namespace std;
 
 using namespace o2::framework;
 using namespace o2::header;
@@ -110,6 +113,12 @@ struct TimestampTask {
     }
 
     timestampTable((orbitResetTimestamp + int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3)) / 1000); // us -> ms
+    cout << "orbitResetTimestamp: " << orbitResetTimestamp << endl;
+    cout << "bc.globalBC(): " << bc.globalBC() << endl;
+    cout << "o2::constants::lhc::LHCBunchSpacingNS: " <<  o2::constants::lhc::LHCBunchSpacingNS << endl;
+    cout << "int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3): " << int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3) << endl;
+    cout << "(orbitResetTimestamp + int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3)): " << (orbitResetTimestamp + int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3)) << endl;
+    cout << "((orbitResetTimestamp + int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3)) / 1000): " << ((orbitResetTimestamp + int64_t(bc.globalBC() * o2::constants::lhc::LHCBunchSpacingNS * 1e-3)) / 1000) << endl;
   }
 };
 
