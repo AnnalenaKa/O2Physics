@@ -15,7 +15,7 @@
 /// \brief  Task to test the performance of the KFParticle package on the Lc to pKpi decay
 ///
 
-#include "Tools/KFparticle/qaKFParticle.h"
+#include "Tools/KFparticle/qaKFParticleLc.h"
 #include <CCDB/BasicCCDBManager.h>
 #include <string>
 #include <TDatabasePDG.h>
@@ -43,7 +43,6 @@
 #include "Common/Core/TrackSelection.h"
 #include "Common/Core/TrackSelectionDefaults.h"
 #include "Common/Core/RecoDecay.h"
-#include "Common/Core/TrackSelectorPID.h"
 #include "Tools/KFparticle/KFUtilities.h"
 
 /// includes KFParticle
@@ -78,9 +77,7 @@ struct qaKFParticle {
   o2::base::Propagator::MatCorrType matCorr = o2::base::Propagator::MatCorrType::USEMatCorrLUT;
   int runNumber;
   double magneticField = 0.;
-
-  /// Histogram Configurables
-  ConfigurableAxis binsPt{"binsPt", {VARIABLE_WIDTH, 0.0, 1., 2., 3., 4., 5., 6., 7., 8., 9., 10., 11., 12., 13., 14., 15., 16., 17., 24., 36., 50.0}, ""};
+  KFParticle KFPion, KFKaon, KFProton, KFLc, KFLc_PV;
 
   /// option to select good events
   Configurable<bool> eventSelection{"eventSelection", true, "select good events"}; // currently only sel8 is defined for run3
@@ -89,56 +86,47 @@ struct qaKFParticle {
 
   /// Particle Identification
   // TPC PID
-  Configurable<double> ptPidTpcMinPi{"ptPidTpcMinPi", 0.15, "Lower bound of track pT for TPC PID"};
-  Configurable<double> ptPidTpcMaxPi{"ptPidTpcMaxPi", 5., "Upper bound of track pT for TPC PID"};
   Configurable<double> nSigmaTpcMaxPi{"nSigmaTpcMaxPi", 3., "Nsigma cut on TPC only"};
-  Configurable<double> nSigmaTpcCombinedMaxPi{"nSigmaTpcCombinedMaxPi", 5., "Nsigma cut on TPC combined with TOF"};
-  Configurable<double> ptPidTpcMinKa{"ptPidTpcMinKa", 0.15, "Lower bound of track pT for TPC PID"};
-  Configurable<double> ptPidTpcMaxKa{"ptPidTpcMaxKa", 5., "Upper bound of track pT for TPC PID"};
   Configurable<double> nSigmaTpcMaxKa{"nSigmaTpcMaxKa", 3., "Nsigma cut on TPC only"};
-  Configurable<double> nSigmaTpcCombinedMaxKa{"nSigmaTpcCombinedMaxKa", 5., "Nsigma cut on TPC combined with TOF"};
-  Configurable<double> ptPidTpcMinPr{"ptPidTpcMinPr", 0.15, "Lower bound of track pT for TPC PID"};
-  Configurable<double> ptPidTpcMaxPr{"ptPidTpcMaxPr", 5., "Upper bound of track pT for TPC PID"};
   Configurable<double> nSigmaTpcMaxPr{"nSigmaTpcMaxPr", 3., "Nsigma cut on TPC only"};
-  Configurable<double> nSigmaTpcCombinedMaxPr{"nSigmaTpcCombinedMaxPr", 5., "Nsigma cut on TPC combined with TOF"};
   // TOF PID
   Configurable<double> ptPidTofMinPi{"ptPidTofMinPi", 0.15, "Lower bound of track pT for TOF PID"};
-  Configurable<double> ptPidTofMaxPi{"ptPidTofMaxPi", 5., "Upper bound of track pT for TOF PID"};
   Configurable<double> nSigmaTofMaxPi{"nSigmaTofMaxPi", 3., "Nsigma cut on TOF only"};
-  Configurable<double> nSigmaTofCombinedMaxPi{"nSigmaTofCombinedMaxPi", 5., "Nsigma cut on TOF combined with TPC"};
   Configurable<double> ptPidTofMinKa{"ptPidTofMinKa", 0.15, "Lower bound of track pT for TOF PID"};
-  Configurable<double> ptPidTofMaxKa{"ptPidTofMaxKa", 5., "Upper bound of track pT for TOF PID"};
   Configurable<double> nSigmaTofMaxKa{"nSigmaTofMaxKa", 3., "Nsigma cut on TOF only"};
-  Configurable<double> nSigmaTofCombinedMaxKa{"nSigmaTofCombinedMaxKa", 5., "Nsigma cut on TOF combined with TPC"};
   Configurable<double> ptPidTofMinPr{"ptPidTofMinPr", 0.15, "Lower bound of track pT for TOF PID"};
-  Configurable<double> ptPidTofMaxPr{"ptPidTofMaxPr", 5., "Upper bound of track pT for TOF PID"};
   Configurable<double> nSigmaTofMaxPr{"nSigmaTofMaxPr", 3., "Nsigma cut on TOF only"};
-  Configurable<double> nSigmaTofCombinedMaxPr{"nSigmaTofCombinedMaxPr", 5., "Nsigma cut on TOF combined with TPC"};
+  // TPC & TOF Combined
+  Configurable<double> nSigmaCombMaxPi{"nSigmaCombMaxPi", 3., "Nsigma cut on TPC & TOF"};
+  Configurable<double> nSigmaCombMaxKa{"nSigmaCombMaxKa", 3., "Nsigma cut on TPC & TOF"};
+  Configurable<double> nSigmaCombMaxPr{"nSigmaCombMaxPr", 3., "Nsigma cut on TPC & TOF"};
+
   /// singe track selections
   Configurable<float> d_pTMin{"d_pTMin", 0.3, "minimum momentum for tracks"};
   Configurable<float> d_etaRange{"d_etaRange", 0.8, "eta Range for tracks"};
   Configurable<float> d_dcaXYTrackPV{"d_dcaXYTrackPV", 2., "DCA XY of the daughter tracks to the PV"};
   Configurable<float> d_dcaZTrackPV{"d_dcaZTrackPV", 10., "DCA Z of the daughter tracks to the PV"};
-  /// D0 selections
-  Configurable<bool> applySelectionDoWithTopoConst{"applySelectionDoWithTopoConst", true, "Apply selections on the D0 after constraining it to the PV"};
-  Configurable<float> d_pTMinD0{"d_pTMinD0", 0., "minimum momentum for D0 candidates"};
-  Configurable<float> d_pTMaxD0{"d_pTMaxD0", 36., "maximum momentum for D0 candidates"};
-  Configurable<float> d_massMinD0{"d_massMinD0", 1.65, "minimum mass for D0"};
-  Configurable<float> d_massMaxD0{"d_massMaxD0", 2.08, "minimum mass for D0"};
-  Configurable<float> d_cosPA{"d_cosPA", -1., "minimum cosine Pointing angle for D0"};
-  Configurable<float> d_cosPAXY{"d_cosPAXY", -1., "minimum cosine Pointing angle for D0"};
-  Configurable<float> d_decayLength{"d_decayLength", 0., "minimum decay length for D0"};
-  Configurable<float> d_normdecayLength{"d_normdecayLength", 100., "minimum normalised decay length for D0"};
-  Configurable<float> d_chi2topoD0{"d_chi2topoD0", 1000., "maximum chi2 topological of D0 to PV"};
+  /// Lc Daughter selections
+  Configurable<float> d_PtMinPi{"d_PtMinPi", 0., "minimum momentum for Pi from Lc candidates"};
+  Configurable<float> d_PtMinKa{"d_PtMinKa", 0., "minimum momentum for Ka from Lc candidates"};
+  Configurable<float> d_PtMinPr{"d_PtMinPr", 0., "minimum momentum for Pr from Lc candidates"};
   Configurable<float> d_dist3DSVDau{"d_dist3DSVDau", 1000., "maximum geometrical distance 3D daughter tracks at the SV"};
-  Configurable<float> d_cosThetaStar{"d_cosThetaStarPi", 1000., "maximum cosine theta star"};
-  Configurable<float> d_distPiToSV{"d_distPiToSV", 1000., "maximum distance Pi to SV"};
-  Configurable<float> d_distKaToSV{"d_distKaToSV", 1000., "maximum distance Ka to SV"};
-  Configurable<float> d_d0Pid0Ka{"d_d0Pid0Ka", 1000., "Product impact parameters"};
+  /// Lc selection after geometrical fitting
+  Configurable<float> d_pTMinLc{"d_pTMinLc", 0., "minimum momentum for Lc candidates"};
+  Configurable<float> d_pTMaxLc{"d_pTMaxLc", 36., "maximum momentum for Lc candidates"};
+  Configurable<float> d_massMin{"d_massMin", 1.65, "minimum mass"};
+  Configurable<float> d_massMax{"d_massMax", 2.08, "minimum mass"};
+  Configurable<float> d_cosPA{"d_cosPA", -1., "minimum cosine Pointing angle"};
+  Configurable<float> d_cosPAXY{"d_cosPAXY", -1., "minimum cosine Pointing angle"};
+  Configurable<float> d_distPVSV{"d_distPVSV", -1., "minimum distance between PV and SV"};
+  Configurable<float> d_chi2geo{"d_chi2geo", 1000., "maximum chi2 geometrical"};
+  /// Lc selection after topological constrain to the PV
+  Configurable<bool> applySelectionWithTopoConst{"applySelectionWithTopoConst", true, "Apply selections constraining the mother to the PV"};
+  Configurable<float> d_decayLength{"d_decayLength", 0., "minimum decay length"};
+  Configurable<float> d_normdecayLength{"d_normdecayLength", 100., "minimum normalised decay length"};
+  Configurable<float> d_chi2topo{"d_chi2topo", 1000., "maximum chi2 topological"};
   /// Option to write D0 variables in a tree
   Configurable<double> d_DwnSmplFact{"d_DwnSmplFact", 1., "Downsampling factor for tree"};
-  Configurable<bool> writeTree{"writeTree", false, "write daughter variables in a tree"};
-  Configurable<bool> writeQAHistograms{"writeQAHistograms", false, "write all QA histograms"};
 
   // Define which track selection should be used:
   // 0 -> No track selection is applied
@@ -165,7 +153,7 @@ struct qaKFParticle {
   using TrackTableData = soa::Join<BigTracksPID, aod::TrackSelection>;
 
   /// Table to be produced
-  Produces<o2::aod::TreeKF> rowKF;
+  Produces<o2::aod::TreeKFLc> rowKFLc;
 
   void initMagneticFieldCCDB(o2::aod::BCsWithTimestamps::iterator const& bc, int& mRunNumber,
                              o2::framework::Service<o2::ccdb::BasicCCDBManager> const& ccdb, std::string ccdbPathGrp, o2::base::MatLayerCylSet* lut,
@@ -227,7 +215,7 @@ struct qaKFParticle {
   template <typename T>
   bool isSelectedTracks(const T& track1, const T& track2, const T& track3)
   {
-    if ((track1.p() < d_pTMin) ||  (track2.p() < d_pTMin) || (track3.p() < d_pTMin)) {
+    if ((track1.p() < d_pTMin) || (track2.p() < d_pTMin) || (track3.p() < d_pTMin)) {
       return false;
     }
     /// Eta range
@@ -250,132 +238,259 @@ struct qaKFParticle {
   }
 
   template <typename T>
-  bool isSelectedDaughters(const T& KFPion, const T& KFKaon, const T& KFDZero, const T& KFPV)
+  bool isSelectedLc(const T& trackKaon, const T& trackPion, const T& trackProton)
   {
+    if (!(trackKaon.sign() == -1 && trackPion.sign() == 1 && trackProton.sign() == 1)) {
+      return false;
+    }
+    bool pidKaon = SelectPIDCombined(trackKaon, kKPlus);
+    bool pidPion = SelectPIDCombined(trackPion, kPiPlus);
+    bool pidProton = SelectPIDCombined(trackProton, kProton);
+    if (!(pidKaon && pidPion && pidProton)) {
+      return false;
+    }
+    return true;
+  }
+  template <typename T>
+  bool isSelectedLcBar(const T& trackKaon, const T& trackPion, const T& trackProton)
+  {
+    if (!(trackKaon.sign() == 1 && trackPion.sign() == -1 && trackProton.sign() == -1)) {
+      return false;
+    }
+    bool pidKaon = SelectPIDCombined(trackKaon, kKPlus);
+    bool pidPion = SelectPIDCombined(trackPion, kPiPlus);
+    bool pidProton = SelectPIDCombined(trackProton, kProton);
+    if (!(pidKaon && pidPion && pidProton)) {
+      return false;
+    }
+    return true;
+  }
+
+  template <typename T, typename T2>
+  bool ReconstructLc(const T& trackKaon, const T& trackPion, const T& trackProton, const T2& KFPV)
+  {
+    KFPTrack kfpTrackKa = createKFPTrackFromTrack(trackKaon);
+    KFPTrack kfpTrackPi = createKFPTrackFromTrack(trackPion);
+    KFPTrack kfpTrackPr = createKFPTrackFromTrack(trackProton);
+    KFParticle KFKa(kfpTrackKa, 321);
+    KFKaon = KFKa;
+    KFParticle KFPi(kfpTrackPi, 211);
+    KFPion = KFPi;
+    KFParticle KFPr(kfpTrackPr, 2212);
+    KFProton = KFPr;
+    const KFParticle* LcDaughters[3] = {&KFKaon, &KFPion, &KFProton};
+    KFLc.SetConstructMethod(2);
+    KFLc.Construct(LcDaughters, 3);
+    if (!isSelectedDaughters(KFPion, KFKaon, KFProton)) {
+      return false;
+    }
+    if (!isSelectedGeo(KFLc, KFPV)) {
+      return false;
+    }
+    KFLc_PV = KFLc;
+    KFLc_PV.SetProductionVertex(KFPV);
+    if (applySelectionWithTopoConst) {
+      if (!isSelectedLcTopo(KFLc_PV, KFPV)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  template <typename T>
+  bool isSelectedDaughters(const T& KFPion, const T& KFKaon, const T& KFProton)
+  {
+    /// Pt of daughters
+    if ((KFPion.GetPt() < d_PtMinPi) || (KFKaon.GetPt() < d_PtMinKa) || (KFProton.GetPt() < d_PtMinPr)) {
+      return false;
+    }
     /// distance 3D daughter tracks at the secondary vertex
-    if (KFPion.GetDistanceFromParticle(KFKaon) > d_dist3DSVDau) {
-      return false;
-    }
-    /// distance Pi to SV
-    if (KFPion.GetDistanceFromVertex(KFDZero) > d_distPiToSV) {
-      return false;
-    }
-    /// distance Ka to SV
-    if (KFKaon.GetDistanceFromVertex(KFDZero) > d_distKaToSV) {
-      return false;
-    }
-    float d0pid0ka = KFPion.GetDistanceFromVertexXY(KFPV) * KFKaon.GetDistanceFromVertexXY(KFPV);
-    if (d0pid0ka > d_d0Pid0Ka) {
+    if ((KFPion.GetDistanceFromParticle(KFKaon) > d_dist3DSVDau) || (KFPion.GetDistanceFromParticle(KFProton) > d_dist3DSVDau) || (KFKaon.GetDistanceFromParticle(KFProton) > d_dist3DSVDau)) {
       return false;
     }
     return true;
   }
 
   template <typename T>
-  bool isSelectedDoGeo(const T& KFDZero, const T& KFPV, float cosThetaStar)
+  bool isSelectedGeo(const T& KFLc, const T& KFPV)
   {
     /// Pt selection
-    if (KFDZero.GetPt() < d_pTMinD0 || KFDZero.GetPt() > d_pTMaxD0) {
+    if (KFLc.GetPt() < d_pTMinLc || KFLc.GetPt() > d_pTMaxLc) {
       return false;
     }
     /// Mass window selection
-    if (KFDZero.GetMass() < d_massMinD0 || KFDZero.GetMass() > d_massMaxD0) {
+    if (KFLc.GetMass() < d_massMin || KFLc.GetMass() > d_massMax) {
       return false;
     }
     /// cosine pointing angle selection
-    if (cpaFromKF(KFDZero, KFPV) < d_cosPA) {
+    if (cpaFromKF(KFLc, KFPV) < d_cosPA) {
       return false;
     }
     /// cosine pointing XY angle selection
-    if (cpaXYFromKF(KFDZero, KFPV) < d_cosPAXY) {
+    if (cpaXYFromKF(KFLc, KFPV) < d_cosPAXY) {
       return false;
     }
-    /// cosine theta star
-    if (cosThetaStar > d_cosThetaStar) {
+    /// Minimum distance between PV and SV
+    if (KFLc.GetDistanceFromVertex(KFPV) < d_distPVSV) {
+      return false;
+    }
+    /// chi2 geometrical
+    float chi2geo = KFLc.GetChi2() / KFLc.GetNDF();
+    if (chi2geo > d_chi2geo) {
       return false;
     }
     return true;
   }
 
   template <typename T>
-  bool isSelectedDoTopo(const T& KFDZero_PV, const T& KFPion, const T& KFKaon, const T& KFDZero_DecayVtx, const T& KFPV)
+  bool isSelectedLcTopo(const T& KFLc_PV, const T& KFPV)
   {
     /// Pt selection
-    if (KFDZero_PV.GetPt() < d_pTMinD0 || KFDZero_PV.GetPt() > d_pTMaxD0) {
+    if (KFLc_PV.GetPt() < d_pTMinLc || KFLc_PV.GetPt() > d_pTMaxLc) {
       return false;
     }
     /// Mass window selection
-    if (KFDZero_PV.GetMass() == 0.) {
+    if (KFLc_PV.GetMass() < d_massMin || KFLc_PV.GetMass() > d_massMax) {
       return false;
     }
     /// cosine pointing angle selection
-    if (cpaFromKF(KFDZero_DecayVtx, KFPV) < d_cosPA) {
+    if (cpaFromKF(KFLc_PV, KFPV) < d_cosPA) {
+      return false;
+    }
+    /// cosine pointing XY angle selection
+    if (cpaXYFromKF(KFLc_PV, KFPV) < d_cosPAXY) {
       return false;
     }
     /// decay length selection
-    if (KFDZero_PV.GetDecayLength() < d_decayLength) {
+    if (KFLc_PV.GetDecayLength() < d_decayLength) {
       return false;
     }
     /// decay length error selection
-    float normdecayLength = KFDZero_PV.GetDecayLength() / KFDZero_PV.GetErrDecayLength();
+    float normdecayLength = KFLc_PV.GetDecayLength() / KFLc_PV.GetErrDecayLength();
     if (normdecayLength < d_normdecayLength) {
       return false;
     }
-    /// chi2 topological of DZero to PV
-    float chi2topo = KFDZero_PV.GetChi2() / KFDZero_PV.GetNDF();
-    if (chi2topo > d_chi2topoD0) {
+    /// chi2 topological
+    float chi2topo = KFLc_PV.GetChi2() / KFLc_PV.GetNDF();
+    if (chi2topo > d_chi2topo) {
       return false;
     }
     return true;
   }
 
-  template <typename T1, typename T2, typename T3>
-  void writeVarTree(const T1& kfpTrackPi, const T1& kfpTrackKa, const T2& KFPion, const T2& KFKaon, const T2& KFDZero_PV, const T2& KFDZero, const T2& KFPV, const T2& KFDZero_DecayVtx, float TPCnSigmaPi, float TOFnSigmaPi, float TPCnSigmaKa, float TOFnSigmaKa, float cosThetaStar, const T3& track1, const int source)
+  template <typename T1>
+  bool SelectPIDCombined(const T1& track, int particle)
+  {
+    switch (particle) {
+      case kPiPlus: {
+        if ((track.pt() <= ptPidTofMinPi) && track.hasTPC() && (abs(track.tpcNSigmaPi()) < nSigmaTpcMaxPi)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPi) && track.hasTPC() && !track.hasTOF() && (abs(track.tpcNSigmaPi()) < nSigmaTpcMaxPi)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPi) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaPi()) < nSigmaTofMaxPi)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPi) && track.hasTPC() && track.hasTOF()) {
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPi() * track.tpcNSigmaPi()) * (track.tofNSigmaPi() * track.tofNSigmaPi()));
+          if (abs(CombinednSigma) < nSigmaCombMaxPi) {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        break;
+      }
+      case kKPlus: {
+        if ((track.pt() <= ptPidTofMinKa) && track.hasTPC() && (abs(track.tpcNSigmaKa()) < nSigmaTpcMaxKa)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinKa) && track.hasTPC() && !track.hasTOF() && (abs(track.tpcNSigmaKa()) < nSigmaTpcMaxKa)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinKa) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaKa()) < nSigmaTofMaxKa)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinKa) && track.hasTPC() && track.hasTOF()) {
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaKa() * track.tpcNSigmaKa()) * (track.tofNSigmaKa() * track.tofNSigmaKa()));
+          if (abs(CombinednSigma) < nSigmaCombMaxKa) {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        break;
+      }
+      case kProton: {
+        if ((track.pt() <= ptPidTofMinPr) && track.hasTPC() && (abs(track.tpcNSigmaPr()) < nSigmaTpcMaxPr)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPr) && track.hasTPC() && !track.hasTOF() && (abs(track.tpcNSigmaPr()) < nSigmaTpcMaxPr)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPr) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaPr()) < nSigmaTofMaxPr)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPr) && track.hasTPC() && track.hasTOF()) {
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPr() * track.tpcNSigmaPr()) * (track.tofNSigmaPr() * track.tofNSigmaPr()));
+          if (abs(CombinednSigma) < nSigmaCombMaxPr) {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        break;
+      }
+      default: {
+        LOGF(error, "ERROR: Species is not implemented");
+        return false;
+      }
+    }
+  }
+
+  template <typename T1, typename T2>
+  void writeVarTree(const T2& KFPion, const T2& KFKaon, const T2& KFProton, const T2& KFLc, const T2& KFLc_PV, const T2& KFPV, const T1& trackKa, const T1& trackPi, const T1& trackPr, const int source)
   {
 
-    float d0pid0ka = KFPion.GetDistanceFromVertexXY(KFPV) * KFKaon.GetDistanceFromVertexXY(KFPV);
-    float chi2geo = KFDZero.GetChi2() / KFDZero.GetNDF();
-    float normdecayLength = KFDZero_PV.GetDecayLength() / KFDZero_PV.GetErrDecayLength();
-    float chi2topo = KFDZero_PV.GetChi2() / KFDZero_PV.GetNDF();
-    const double pseudoRndm = track1.pt() * 1000. - (int64_t)(track1.pt() * 1000);
+    float chi2geo = KFLc.GetChi2() / KFLc.GetNDF();
+    float normdecayLength = KFLc_PV.GetDecayLength() / KFLc_PV.GetErrDecayLength();
+    float chi2topo = KFLc_PV.GetChi2() / KFLc_PV.GetNDF();
+    const double pseudoRndm = trackKa.pt() * 1000. - (int64_t)(trackKa.pt() * 1000);
     if (pseudoRndm < d_DwnSmplFact) {
-      if (writeTree) {
-        /// Filling the D0 tree
-        rowKF(runNumber,
+      /// Filling the D0 tree
+      rowKFLc(runNumber,
               KFPion.GetPt(),
               KFKaon.GetPt(),
+              KFProton.GetPt(),
               KFPion.GetDistanceFromVertexXY(KFPV),
               KFKaon.GetDistanceFromVertexXY(KFPV),
+              KFProton.GetDistanceFromVertexXY(KFPV),
               KFPion.GetDistanceFromVertex(KFPV),
               KFKaon.GetDistanceFromVertex(KFPV),
-              TPCnSigmaPi,
-              TPCnSigmaKa,
-              TOFnSigmaPi,
-              TOFnSigmaKa,
-              KFPion.GetDistanceFromVertexXY(KFDZero),
-              KFKaon.GetDistanceFromVertexXY(KFDZero),
-              cosThetaStar,
-              KFPion.GetDistanceFromParticle(KFKaon),
-              d0pid0ka,
-              KFDZero.GetPt(),
-              KFDZero.GetMass(),
-              cpaFromKF(KFDZero, KFPV),
-              cpaXYFromKF(KFDZero, KFPV),
-              KFDZero.GetDistanceFromVertex(KFPV),
-              KFDZero.GetDistanceFromVertexXY(KFPV),
+              KFProton.GetDistanceFromVertex(KFPV),
+              trackPi.tpcNSigmaPi(),
+              trackKa.tpcNSigmaKa(),
+              trackPr.tpcNSigmaPr(),
+              trackPi.tofNSigmaPi(),
+              trackKa.tofNSigmaKa(),
+              trackPr.tofNSigmaPr(),
+              KFPion.GetDistanceFromVertexXY(KFLc),
+              KFKaon.GetDistanceFromVertexXY(KFLc),
+              KFProton.GetDistanceFromVertexXY(KFLc),
+              KFLc.GetPt(),
+              KFLc.GetMass(),
+              cpaFromKF(KFLc, KFPV),
+              cpaXYFromKF(KFLc, KFPV),
+              KFLc.GetDistanceFromVertex(KFPV),
+              KFLc.GetDistanceFromVertexXY(KFPV),
               chi2geo,
-              KFDZero_PV.GetPt(),
-              KFDZero_PV.GetMass(),
-              KFDZero_PV.GetDecayLength(),
-              KFDZero_PV.GetDecayLengthXY(),
-              cpaFromKF(KFDZero_DecayVtx, KFPV),
-              KFDZero_PV.GetLifeTime(),
+              KFLc_PV.GetPt(),
+              KFLc_PV.GetMass(),
+              KFLc_PV.GetDecayLength(),
+              KFLc_PV.GetDecayLengthXY(),
+              cpaFromKF(KFLc_PV, KFPV),
+              KFLc_PV.GetLifeTime(),
               normdecayLength,
-              KFDZero_PV.GetDistanceFromVertex(KFPV),
-              KFDZero_PV.GetDistanceFromVertexXY(KFPV),
               chi2topo,
               source);
-      }
     }
   }
 
@@ -387,10 +502,10 @@ struct qaKFParticle {
     if (runNumber != bc.runNumber()) {
       initMagneticFieldCCDB(bc, runNumber, ccdb, isRun3 ? ccdbPathGrpMag : ccdbPathGrp, lut, isRun3);
       magneticField = o2::base::Propagator::Instance()->getNominalBz();
-      /// Set magnetic field for KF vertexing
-      #ifdef HomogeneousField
+/// Set magnetic field for KF vertexing
+#ifdef HomogeneousField
       KFParticle::SetField(magneticField);
-      #endif
+#endif
     }
     /// Apply event selection
     if (!isSelectedCollision(collision)) {
@@ -399,31 +514,6 @@ struct qaKFParticle {
     /// set KF primary vertex
     KFPVertex kfpVertex = createKFPVertexFromCollision(collision);
     KFParticle KFPV(kfpVertex);
-
-    TrackSelectorPID selectorPion(kPiPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinPi, ptPidTpcMaxPi);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxPi, nSigmaTpcMaxPi);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxPi, nSigmaTpcCombinedMaxPi);
-    selectorPion.setRangePtTOF(ptPidTofMinPi, ptPidTofMaxPi);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxPi, nSigmaTofMaxPi);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxPi, nSigmaTofCombinedMaxPi);
-
-    TrackSelectorPID selectorKaon(kKPlus);
-    selectorKaon.setRangePtTPC(ptPidTpcMinKa, ptPidTpcMaxKa);
-    selectorKaon.setRangeNSigmaTPC(-nSigmaTpcMaxKa, nSigmaTpcMaxKa);
-    selectorKaon.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxKa, nSigmaTpcCombinedMaxKa);
-    selectorKaon.setRangePtTOF(ptPidTofMinKa, ptPidTofMaxKa);
-    selectorKaon.setRangeNSigmaTOF(-nSigmaTofMaxKa, nSigmaTofMaxKa);
-    selectorKaon.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxKa, nSigmaTofCombinedMaxKa);
-
-    TrackSelectorPID selectorProton(kProton);
-    selectorProton.setRangePtTPC(ptPidTpcMinPr, ptPidTpcMaxPr);
-    selectorProton.setRangeNSigmaTPC(-nSigmaTpcMaxPr, nSigmaTpcMaxPr);
-    selectorProton.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxPr, nSigmaTpcCombinedMaxPr);
-    selectorProton.setRangePtTOF(ptPidTofMinPr, ptPidTofMaxPr);
-    selectorProton.setRangeNSigmaTOF(-nSigmaTofMaxPr, nSigmaTofMaxPr);
-    selectorProton.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxPr, nSigmaTofCombinedMaxPr);
-    
 
     for (auto& [track1, track2, track3] : combinations(soa::CombinationsStrictlyUpperIndexPolicy(tracks, tracks, tracks))) {
 
@@ -432,508 +522,112 @@ struct qaKFParticle {
         continue;
       }
 
-      KFPTrack kfpTrackNegKa;
-      KFPTrack kfpTrackPosPi;
-      KFPTrack kfpTrackPosPr;
-
-      KFPTrack kfpTrackPosKa;
-      KFPTrack kfpTrackNegPi;
-      KFPTrack kfpTrackNegPr;
-
-
       bool CandLc = false;
       bool CandLcbar = false;
-
-      float TPCnSigmaPi = 0;
-      float TPCnSigmaKa = 0;
-      float TPCnSigmaPr = 0;
-      float TOFnSigmaPi = 0;
-      float TOFnSigmaKa = 0;
-      float TOFnSigmaPr = 0;
       int source = 0;
 
-      int pidKaonTr1 = selectorKaon.getStatusTrackPIDAll(track1);
-      int pidKaonTr2 = selectorKaon.getStatusTrackPIDAll(track2);
-      int pidKaonTr3 = selectorKaon.getStatusTrackPIDAll(track3);
-      int pidPionTr1 = selectorPion.getStatusTrackPIDAll(track1);
-      int pidPionTr2 = selectorPion.getStatusTrackPIDAll(track2);
-      int pidPionTr3 = selectorPion.getStatusTrackPIDAll(track3);
-      int pidProtonTr1 = selectorProton.getStatusTrackPIDAll(track1);
-      int pidProtonTr2 = selectorProton.getStatusTrackPIDAll(track2);
-      int pidProtonTr3 = selectorProton.getStatusTrackPIDAll(track3);
-
-      /// Selection Lc
-      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr3 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == 1) {
-          // Lc
-          /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
-
-        } else if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == -1) {
-          // Lc Bar
-          /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+      if (isSelectedLc(track1, track2, track3)) {
+        CandLc = true;
+        source = 1;
+        bool LcReconstructed = ReconstructLc(track1, track2, track3, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track1, track2, track3, source);
         }
       }
-      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr2 == TrackSelectorPID::Status::PIDAccepted && pidPionTr3 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == 1) {
-          // Lc
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
-
-        } else if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == -1) {
-          // Lc bar
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+      if (isSelectedLc(track1, track3, track2)) {
+        CandLc = true;
+        source = 1;
+        bool LcReconstructed = ReconstructLc(track1, track3, track2, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track1, track3, track2, source);
         }
       }
-      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr3 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == 1) {
-          // Lc
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
-
-        } else if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == -1) {
-          // Lc bar
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+      if (isSelectedLc(track2, track1, track3)) {
+        CandLc = true;
+        source = 1;
+        bool LcReconstructed = ReconstructLc(track2, track1, track3, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track2, track1, track3, source);
         }
       }
-      if (pidProtonTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted && pidPionTr3 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == 1) {
-          // Lc
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
-
-        } else if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == -1) {
-          // Lc bar
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+      if (isSelectedLc(track2, track3, track1)) {
+        CandLc = true;
+        source = 1;
+        bool LcReconstructed = ReconstructLc(track2, track3, track1, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track2, track3, track1, source);
         }
       }
-      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted && pidProtonTr3 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == -1 && track3.sign() == 1) {
-          // Lc
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
-
-        } else if (track1.sign() == -1 && track2.sign() == 1 && track3.sign() == -1) {
-          // Lc bar
-                    /// Function Reconstruct Lc
-          /// Pass the KF tracks or particles to the function. The rest is handled in the same way for all. 
+      if (isSelectedLc(track3, track1, track2)) {
+        CandLc = true;
+        source = 1;
+        bool LcReconstructed = ReconstructLc(track3, track1, track2, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track3, track1, track2, source);
         }
       }
-
-
-      /// Select Lc and Lcbar candidates
-      if (pidProtonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr3 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == 1 && track3.sign() == -1) {
-          CandLc = true;
-          source = 1;
-          kfpTrackPosPi = createKFPTrackFromTrack(track1);
-          kfpTrackNegKa = createKFPTrackFromTrack(track2);
-          TPCnSigmaPosPi = track1.tpcNSigmaPi();
-          TPCnSigmaNegKa = track2.tpcNSigmaKa();
-          TOFnSigmaPosPi = track1.tofNSigmaPi();
-          TOFnSigmaNegKa = track2.tofNSigmaKa();
-        } else if (track1.sign() == -1 && track2.sign() == 1) {
-          CandD0bar = true;
-          source = 2;
-          kfpTrackNegPi = createKFPTrackFromTrack(track1);
-          kfpTrackPosKa = createKFPTrackFromTrack(track2);
-          TPCnSigmaNegPi = track1.tpcNSigmaPi();
-          TPCnSigmaPosKa = track2.tpcNSigmaKa();
-          TOFnSigmaNegPi = track1.tofNSigmaPi();
-          TOFnSigmaPosKa = track2.tofNSigmaKa();
-        } else {
-          continue;
+      if (isSelectedLc(track3, track2, track1)) {
+        CandLc = true;
+        source = 1;
+        bool LcReconstructed = ReconstructLc(track3, track2, track1, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track3, track2, track1, source);
         }
       }
-      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == -1) {
-          CandD0bar = true;
-          source = 2;
-          kfpTrackNegPi = createKFPTrackFromTrack(track2);
-          kfpTrackPosKa = createKFPTrackFromTrack(track1);
-          TPCnSigmaNegPi = track2.tpcNSigmaPi();
-          TPCnSigmaPosKa = track1.tpcNSigmaKa();
-          TOFnSigmaNegPi = track2.tofNSigmaPi();
-          TOFnSigmaPosKa = track1.tofNSigmaKa();
-        } else if (track1.sign() == -1 && track2.sign() == 1) {
-          CandD0 = true;
-          source = 1;
-          kfpTrackPosPi = createKFPTrackFromTrack(track2);
-          kfpTrackNegKa = createKFPTrackFromTrack(track1);
-          TPCnSigmaPosPi = track2.tpcNSigmaPi();
-          TPCnSigmaNegKa = track1.tpcNSigmaKa();
-          TOFnSigmaPosPi = track2.tofNSigmaPi();
-          TOFnSigmaNegKa = track1.tofNSigmaKa();
-        } else {
-          continue;
+      if (isSelectedLcBar(track1, track2, track3)) {
+        CandLcbar = true;
+        source = 2;
+        bool LcReconstructed = ReconstructLc(track1, track2, track3, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track1, track2, track3, source);
         }
       }
-      if (!CandD0 && !CandD0bar) {
+      if (isSelectedLcBar(track1, track3, track2)) {
+        CandLcbar = true;
+        source = 2;
+        bool LcReconstructed = ReconstructLc(track1, track3, track2, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track1, track3, track2, source);
+        }
+      }
+      if (isSelectedLcBar(track2, track1, track3)) {
+        CandLcbar = true;
+        source = 2;
+        bool LcReconstructed = ReconstructLc(track2, track1, track3, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track2, track1, track3, source);
+        }
+      }
+      if (isSelectedLcBar(track2, track3, track1)) {
+        CandLcbar = true;
+        source = 2;
+        bool LcReconstructed = ReconstructLc(track2, track3, track1, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track2, track3, track1, source);
+        }
+      }
+      if (isSelectedLcBar(track3, track1, track2)) {
+        CandLcbar = true;
+        source = 2;
+        bool LcReconstructed = ReconstructLc(track3, track1, track2, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track3, track1, track2, source);
+        }
+      }
+      if (isSelectedLcBar(track3, track2, track1)) {
+        CandLcbar = true;
+        source = 2;
+        bool LcReconstructed = ReconstructLc(track3, track2, track1, KFPV);
+        if (LcReconstructed) {
+          writeVarTree(KFPion, KFKaon, KFProton, KFLc, KFLc_PV, KFPV, track3, track2, track1, source);
+        }
+      }
+      if (!CandLc && !CandLcbar) {
         continue;
-      }
-      if (CandD0 && CandD0bar) {
-        source = 3;
-      }
-
-      KFParticle KFPosPion(kfpTrackPosPi, 211);
-      KFParticle KFNegPion(kfpTrackNegPi, 211);
-      KFParticle KFPosKaon(kfpTrackPosKa, 321);
-      KFParticle KFNegKaon(kfpTrackNegKa, 321);
-
-      int NDaughters = 2;
-      float cosThetaStar = 0;
-
-      if (CandD0) {
-        KFParticle KFDZero;
-        const KFParticle* D0Daughters[2] = {&KFPosPion, &KFNegKaon};
-        KFDZero.SetConstructMethod(2);
-        KFDZero.Construct(D0Daughters, NDaughters);
-        /// Apply daughter selection
-        if (!isSelectedDaughters(KFPosPion, KFNegKaon, KFDZero, KFPV)) {
-          continue;
-        }
-        /// Apply selection on geometrically reconstructed D0
-        cosThetaStar = cosThetaStarFromKF(1, 421, 211, 321, KFPosPion, KFNegKaon);
-        if (!isSelectedDoGeo(KFDZero, KFPV, cosThetaStar)) {
-          continue;
-        }
-        /// Apply a topological constraint of the D0 to the PV.
-        /// Parameters will be given at the primary vertex.
-        KFParticle KFDZero_PV = KFDZero;
-        KFDZero_PV.SetProductionVertex(KFPV);
-        /// Transport the D0 after the topological constraint back to the decay vertex
-        KFParticle KFDZero_DecayVtx = KFDZero_PV;
-        KFDZero_DecayVtx.TransportToDecayVertex();
-        if (applySelectionDoWithTopoConst) {
-          /// Apply selection on D0 after constraint to the PV
-          if (!isSelectedDoTopo(KFDZero_PV, KFPosPion, KFNegKaon, KFDZero_DecayVtx, KFPV)) {
-            continue;
-          }
-        }
-
-        writeVarTree(kfpTrackPosPi, kfpTrackNegKa, KFPosPion, KFNegKaon, KFDZero_PV, KFDZero, KFPV, KFDZero_DecayVtx, TPCnSigmaPosPi, TOFnSigmaPosPi, TPCnSigmaNegKa, TOFnSigmaNegKa, cosThetaStar, track1, source);
-      }
-      if (CandD0bar) {
-        KFParticle KFDZeroBar;
-        const KFParticle* D0BarDaughters[2] = {&KFNegPion, &KFPosKaon};
-        KFDZeroBar.SetConstructMethod(2);
-        KFDZeroBar.Construct(D0BarDaughters, NDaughters);
-        /// Apply daughter selection
-        if (!isSelectedDaughters(KFNegPion, KFPosKaon, KFDZeroBar, KFPV)) {
-          continue;
-        }
-        /// Apply selection on geometrically reconstructed D0
-        cosThetaStar = cosThetaStarFromKF(0, 421, 321, 211, KFPosKaon, KFNegPion);
-        if (!isSelectedDoGeo(KFDZeroBar, KFPV, cosThetaStar)) {
-          continue;
-        }
-        /// Apply a topological constraint of the D0 to the PV.
-        /// Parameters will be given at the primary vertex.
-        KFParticle KFDZeroBar_PV = KFDZeroBar;
-        KFDZeroBar_PV.SetProductionVertex(KFPV);
-        /// Transport the D0 after the topological constraint back to the decay vertex
-        KFParticle KFDZeroBar_DecayVtx = KFDZeroBar_PV;
-        KFDZeroBar_DecayVtx.TransportToDecayVertex();
-        if (applySelectionDoWithTopoConst) {
-          /// Apply selection on D0 after constraint to the PV
-          if (!isSelectedDoTopo(KFDZeroBar_PV, KFNegPion, KFPosKaon, KFDZeroBar_DecayVtx, KFPV)) {
-            continue;
-          }
-        }
-        writeVarTree(kfpTrackNegPi, kfpTrackPosKa, KFNegPion, KFPosKaon, KFDZeroBar_PV, KFDZeroBar, KFPV, KFDZeroBar_DecayVtx, TPCnSigmaNegPi, TOFnSigmaNegPi, TPCnSigmaPosKa, TOFnSigmaPosKa, cosThetaStar, track1, source);
       }
     }
   }
   PROCESS_SWITCH(qaKFParticle, processData, "process data", true);
-
-  /// Process function for MC
-  using CollisionTableMC = soa::Join<CollisionTableData, aod::McCollisionLabels>;
-  using CollisionTableDataMult = soa::Join<aod::Collisions, aod::Mults, aod::McCollisionLabels>;
-  using TrackTableMC = soa::Join<TrackTableData, aod::McTrackLabels>;
-  Preslice<aod::McCollisionLabels> perMcCollision = aod::mccollisionlabel::mcCollisionId;
-  void processMC(CollisionTableMC::iterator const& collision, CollisionTableMC const& collisions, soa::Filtered<TrackTableMC> const& tracks, aod::McParticles const& mcParticles, aod::McCollisions const& mcCollisions, aod::BCsWithTimestamps const&)
-  {
-    auto bc = collision.bc_as<aod::BCsWithTimestamps>();
-    if (runNumber != bc.runNumber()) {
-      initMagneticFieldCCDB(bc, runNumber, ccdb, isRun3 ? ccdbPathGrpMag : ccdbPathGrp, lut, isRun3);
-      magneticField = o2::base::Propagator::Instance()->getNominalBz();
-      /// Set magnetic field for KF vertexing
-      #ifdef HomogeneousField
-      KFParticle::SetField(magneticField);
-      #endif
-    }
-    /// Remove Collisions without a MC Collision
-    if (!collision.has_mcCollision()) {
-      return;
-    }
-    /// Apply event selection
-    if (!isSelectedCollision(collision)) {
-      return;
-    }
-    /// set KF primary vertex
-    KFPVertex kfpVertex = createKFPVertexFromCollision(collision);
-    KFParticle KFPV(kfpVertex);
-
-    KFPVertex kfpVertexDefault = createKFPVertexFromCollision(collision);
-    KFParticle KFPVDefault(kfpVertexDefault);
-
-    TrackSelectorPID selectorPion(kPiPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinPi, ptPidTpcMaxPi);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxPi, nSigmaTpcMaxPi);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxPi, nSigmaTpcCombinedMaxPi);
-    selectorPion.setRangePtTOF(ptPidTofMinPi, ptPidTofMaxPi);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxPi, nSigmaTofMaxPi);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxPi, nSigmaTofCombinedMaxPi);
-
-    TrackSelectorPID selectorKaon(kKPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinKa, ptPidTpcMaxKa);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxKa, nSigmaTpcMaxKa);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxKa, nSigmaTpcCombinedMaxKa);
-    selectorPion.setRangePtTOF(ptPidTofMinKa, ptPidTofMaxKa);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxKa, nSigmaTofMaxKa);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxKa, nSigmaTofCombinedMaxKa);
-
-    for (auto& [track1, track2] : combinations(soa::CombinationsStrictlyUpperIndexPolicy(tracks, tracks))) {
-
-      /// Apply single track selection
-      if (!isSelectedTracks(track1, track2)) {
-        continue;
-      }
-
-      /// Check whether the track was assigned to the true MC PV
-      auto particle1 = track1.mcParticle();
-      auto particle2 = track2.mcParticle();
-      auto collMC = particle1.mcCollision();
-      auto mcCollID_recoColl = track1.collision_as<CollisionTableMC>().mcCollisionId();
-      auto mcCollID_particle = particle1.mcCollisionId();
-      bool indexMatchOK = (mcCollID_recoColl == mcCollID_particle);
-      if (!indexMatchOK) {
-        const auto matchedCollisions = collisions.sliceBy(perMcCollision, collMC.globalIndex());
-        int i = 0;
-        std::array<float, 5> dcaZ{100, 100, 100, 100, 100};
-        float min = 100;
-        for (auto matchedCollision : matchedCollisions) {
-          dcaZ[i] = abs(matchedCollision.posZ() - collMC.posZ());
-          if (i == 0) {
-            min = dcaZ[i];
-          }
-          if (i > 0) {
-            if (dcaZ[i] < dcaZ[i - 1]) {
-              min = dcaZ[i];
-            }
-          }
-
-          i = i + 1;
-        }
-        if (min > 10.) {
-        }
-        int j = 0;
-        for (auto matchedCollision : matchedCollisions) {
-          if (i == 1) {
-            kfpVertex = createKFPVertexFromCollision(matchedCollision);
-            KFParticle KFPVNew(kfpVertex);
-            KFPV = KFPVNew;
-          }
-          if (i > 1) {
-            if (abs(matchedCollision.posZ() - collMC.posZ()) == min) {
-              kfpVertex = createKFPVertexFromCollision(matchedCollision);
-              KFParticle KFPVNew(kfpVertex);
-              KFPV = KFPVNew;
-            }
-          }
-          j = j + 1;
-        }
-      }
-
-      /// Remove fake tracks
-      if (!track1.has_mcParticle() || !track2.has_mcParticle()) {
-        continue;
-      }
-      /// Remove unmatched tracks
-      if (track1.collisionId() <= 0 || track1.collisionId() <= 0) {
-        continue;
-      }
-
-      int8_t sign = 0;
-      int8_t flag = RecoDecay::OriginType::None;
-      int sourceD0 = 0;
-      int sourceD0Bar = 0;
-
-      auto indexRec = RecoDecay::getMatchedMCRec(mcParticles, std::array{track1, track2}, 421, array{211, -321}, true, &sign);
-      if (indexRec > -1) {
-        auto particle = mcParticles.rawIteratorAt(indexRec);
-        flag = RecoDecay::getCharmHadronOrigin(mcParticles, particle);
-        if (flag == RecoDecay::OriginType::Prompt) {
-          sourceD0 |= kPrompt;
-          sourceD0Bar |= kPrompt;
-        } else if (flag == RecoDecay::OriginType::NonPrompt) {
-          sourceD0 |= kNonPrompt;
-          sourceD0Bar |= kNonPrompt;
-        }
-        if (flag != RecoDecay::OriginType::Prompt && flag != RecoDecay::OriginType::NonPrompt) {
-          continue;
-        }
-      } else {
-        continue;
-      }
-
-      KFPTrack kfpTrackPosPi;
-      KFPTrack kfpTrackNegPi;
-      KFPTrack kfpTrackPosKa;
-      KFPTrack kfpTrackNegKa;
-
-      bool CandD0 = false;
-      bool CandD0bar = false;
-      float TPCnSigmaPosPi = 0;
-      float TPCnSigmaNegPi = 0;
-      float TPCnSigmaPosKa = 0;
-      float TPCnSigmaNegKa = 0;
-      float TOFnSigmaPosPi = 0;
-      float TOFnSigmaNegPi = 0;
-      float TOFnSigmaPosKa = 0;
-      float TOFnSigmaNegKa = 0;
-
-      int pidKaonTr1 = selectorKaon.getStatusTrackPIDAll(track1);
-      int pidKaonTr2 = selectorKaon.getStatusTrackPIDAll(track2);
-      int pidPionTr1 = selectorPion.getStatusTrackPIDAll(track1);
-      int pidPionTr2 = selectorPion.getStatusTrackPIDAll(track2);
-
-
-      int pdgMother = mcParticles.rawIteratorAt(indexRec - mcParticles.offset()).pdgCode();
-      /// Select D0 and D0bar candidates
-      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == -1) {
-          CandD0 = true;
-          particle1 = track1.mcParticle();
-          particle2 = track2.mcParticle();
-          if (pdgMother == -421) {
-            sourceD0 |= kReflection;
-          }
-          kfpTrackPosPi = createKFPTrackFromTrack(track1);
-          kfpTrackNegKa = createKFPTrackFromTrack(track2);
-          TPCnSigmaPosPi = track1.tpcNSigmaPi();
-          TPCnSigmaNegKa = track2.tpcNSigmaKa();
-          TOFnSigmaPosPi = track1.tofNSigmaPi();
-          TOFnSigmaNegKa = track2.tofNSigmaKa();
-        } else if (track1.sign() == -1 && track2.sign() == 1) {
-          CandD0bar = true;
-          if (pdgMother == 421) {
-            sourceD0Bar |= kReflection;
-          }
-          kfpTrackNegPi = createKFPTrackFromTrack(track1);
-          kfpTrackPosKa = createKFPTrackFromTrack(track2);
-          TPCnSigmaNegPi = track1.tpcNSigmaPi();
-          TPCnSigmaPosKa = track2.tpcNSigmaKa();
-          TOFnSigmaNegPi = track1.tofNSigmaPi();
-          TOFnSigmaPosKa = track2.tofNSigmaKa();
-        } else {
-          continue;
-        }
-      }
-      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted) {
-        if (track1.sign() == 1 && track2.sign() == -1) {
-          CandD0bar = true;
-          if (pdgMother == 421) {
-            sourceD0Bar |= kReflection;
-          }
-          kfpTrackNegPi = createKFPTrackFromTrack(track2);
-          kfpTrackPosKa = createKFPTrackFromTrack(track1);
-          TPCnSigmaNegPi = track2.tpcNSigmaPi();
-          TPCnSigmaPosKa = track1.tpcNSigmaKa();
-          TOFnSigmaNegPi = track2.tofNSigmaPi();
-          TOFnSigmaPosKa = track1.tofNSigmaKa();
-        } else if (track1.sign() == -1 && track2.sign() == 1) {
-          CandD0 = true;
-          if (pdgMother == -421) {
-            sourceD0 |= kReflection;
-          }
-          kfpTrackPosPi = createKFPTrackFromTrack(track2);
-          kfpTrackNegKa = createKFPTrackFromTrack(track1);
-          TPCnSigmaPosPi = track2.tpcNSigmaPi();
-          TPCnSigmaNegKa = track1.tpcNSigmaKa();
-          TOFnSigmaPosPi = track2.tofNSigmaPi();
-          TOFnSigmaNegKa = track1.tofNSigmaKa();
-        } else {
-          continue;
-        }
-      }
-      if (!CandD0 && !CandD0bar) {
-        continue;
-      }
-
-      KFParticle KFPosPion(kfpTrackPosPi, 211);
-      KFParticle KFNegPion(kfpTrackNegPi, 211);
-      KFParticle KFPosKaon(kfpTrackPosKa, 321);
-      KFParticle KFNegKaon(kfpTrackNegKa, 321);
-
-      int NDaughters = 2;
-      float cosThetaStar = 0;
-
-      if (CandD0) {
-        KFParticle KFDZero;
-        const KFParticle* D0Daughters[2] = {&KFPosPion, &KFNegKaon};
-        KFDZero.SetConstructMethod(2);
-        KFDZero.Construct(D0Daughters, NDaughters);
-        /// Apply daughter selection
-        if (!isSelectedDaughters(KFPosPion, KFNegKaon, KFDZero, KFPV)) {
-          continue;
-        }
-        /// Apply selection on geometrically reconstructed D0
-        cosThetaStar = cosThetaStarFromKF(1, 421, 211, 321, KFPosPion, KFNegKaon);
-        if (!isSelectedDoGeo(KFDZero, KFPV, cosThetaStar)) {
-          continue;
-        }
-        /// Apply a topological constraint of the D0 to the PV.
-        /// Parameters will be given at the primary vertex.
-        KFParticle KFDZero_PV = KFDZero;
-        KFDZero_PV.SetProductionVertex(KFPV);
-        /// Transport the D0 after the topological constraint back to the decay vertex
-        KFParticle KFDZero_DecayVtx = KFDZero_PV;
-        KFDZero_DecayVtx.TransportToDecayVertex();
-        if (applySelectionDoWithTopoConst) {
-          /// Apply selection on D0 after constraint to the PV
-          if (!isSelectedDoTopo(KFDZero_PV, KFPosPion, KFNegKaon, KFDZero_DecayVtx, KFPV)) {
-            continue;
-          }
-        }
-        writeVarTree(kfpTrackPosPi, kfpTrackNegKa, KFPosPion, KFNegKaon, KFDZero_PV, KFDZero, KFPV, KFDZero_DecayVtx, TPCnSigmaPosPi, TOFnSigmaPosPi, TPCnSigmaNegKa, TOFnSigmaNegKa, cosThetaStar, track1, sourceD0);
-      }
-      if (CandD0bar) {
-        KFParticle KFDZeroBar;
-        const KFParticle* D0BarDaughters[2] = {&KFNegPion, &KFPosKaon};
-        KFDZeroBar.SetConstructMethod(2);
-        KFDZeroBar.Construct(D0BarDaughters, NDaughters);
-        /// Apply daughter selection
-        if (!isSelectedDaughters(KFNegPion, KFPosKaon, KFDZeroBar, KFPV)) {
-          continue;
-        }
-        /// Apply selection on geometrically reconstructed D0
-        cosThetaStar = cosThetaStarFromKF(0, 421, 321, 211, KFPosKaon, KFNegPion);
-        if (!isSelectedDoGeo(KFDZeroBar, KFPV, cosThetaStar)) {
-          continue;
-        }
-        /// Apply a topological constraint of the D0 to the PV.
-        /// Parameters will be given at the primary vertex.
-        KFParticle KFDZeroBar_PV = KFDZeroBar;
-        KFDZeroBar_PV.SetProductionVertex(KFPV);
-        /// Transport the D0 after the topological constraint back to the decay vertex
-        KFParticle KFDZeroBar_DecayVtx = KFDZeroBar_PV;
-        KFDZeroBar_DecayVtx.TransportToDecayVertex();
-        if (applySelectionDoWithTopoConst) {
-          /// Apply selection on D0 after constraint to the PV
-          if (!isSelectedDoTopo(KFDZeroBar_PV, KFNegPion, KFPosKaon, KFDZeroBar_DecayVtx, KFPV)) {
-            continue;
-          }
-        }
-        writeVarTree(kfpTrackPosPi, kfpTrackNegKa, KFPosPion, KFNegKaon, KFDZeroBar_PV, KFDZeroBar, KFPV, KFDZeroBar_DecayVtx, TPCnSigmaNegPi, TOFnSigmaNegPi, TPCnSigmaPosKa, TOFnSigmaPosKa, cosThetaStar, track1, sourceD0Bar);
-      }
-    }
-  }
-  PROCESS_SWITCH(qaKFParticle, processMC, "process mc", false);
 };
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)

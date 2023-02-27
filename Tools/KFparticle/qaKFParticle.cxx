@@ -43,7 +43,6 @@
 #include "Common/Core/TrackSelection.h"
 #include "Common/Core/TrackSelectionDefaults.h"
 #include "Common/Core/RecoDecay.h"
-#include "Common/Core/TrackSelectorPID.h"
 #include "Tools/KFparticle/KFUtilities.h"
 
 /// includes KFParticle
@@ -90,23 +89,16 @@ struct qaKFParticle {
 
   /// Particle Identification
   // TPC PID
-  Configurable<double> ptPidTpcMinPi{"ptPidTpcMinPi", 0.15, "Lower bound of track pT for TPC PID"};
-  Configurable<double> ptPidTpcMaxPi{"ptPidTpcMaxPi", 5., "Upper bound of track pT for TPC PID"};
   Configurable<double> nSigmaTpcMaxPi{"nSigmaTpcMaxPi", 3., "Nsigma cut on TPC only"};
-  Configurable<double> nSigmaTpcCombinedMaxPi{"nSigmaTpcCombinedMaxPi", 5., "Nsigma cut on TPC combined with TOF"};
-  Configurable<double> ptPidTpcMinKa{"ptPidTpcMinKa", 0.15, "Lower bound of track pT for TPC PID"};
-  Configurable<double> ptPidTpcMaxKa{"ptPidTpcMaxKa", 5., "Upper bound of track pT for TPC PID"};
   Configurable<double> nSigmaTpcMaxKa{"nSigmaTpcMaxKa", 3., "Nsigma cut on TPC only"};
-  Configurable<double> nSigmaTpcCombinedMaxKa{"nSigmaTpcCombinedMaxKa", 5., "Nsigma cut on TPC combined with TOF"};
   // TOF PID
   Configurable<double> ptPidTofMinPi{"ptPidTofMinPi", 0.15, "Lower bound of track pT for TOF PID"};
-  Configurable<double> ptPidTofMaxPi{"ptPidTofMaxPi", 5., "Upper bound of track pT for TOF PID"};
   Configurable<double> nSigmaTofMaxPi{"nSigmaTofMaxPi", 3., "Nsigma cut on TOF only"};
-  Configurable<double> nSigmaTofCombinedMaxPi{"nSigmaTofCombinedMaxPi", 5., "Nsigma cut on TOF combined with TPC"};
   Configurable<double> ptPidTofMinKa{"ptPidTofMinKa", 0.15, "Lower bound of track pT for TOF PID"};
-  Configurable<double> ptPidTofMaxKa{"ptPidTofMaxKa", 5., "Upper bound of track pT for TOF PID"};
   Configurable<double> nSigmaTofMaxKa{"nSigmaTofMaxKa", 3., "Nsigma cut on TOF only"};
-  Configurable<double> nSigmaTofCombinedMaxKa{"nSigmaTofCombinedMaxKa", 5., "Nsigma cut on TOF combined with TPC"};
+  // TPC & TOF Combined
+  Configurable<double> nSigmaCombMaxPi{"nSigmaCombMaxPi", 3., "Nsigma cut on TPC & TOF"};
+  Configurable<double> nSigmaCombMaxKa{"nSigmaCombMaxKa", 3., "Nsigma cut on TPC & TOF"};
   /// singe track selections
   Configurable<float> d_pTMin{"d_pTMin", 0.3, "minimum momentum for tracks"};
   Configurable<float> d_etaRange{"d_etaRange", 0.8, "eta Range for tracks"};
@@ -541,6 +533,55 @@ struct qaKFParticle {
     return true;
   }
 
+  template <typename T1>
+  bool SelectPIDCombined(const T1& track, int particle)
+  {
+    switch (particle) {
+      case kPiPlus: {
+        if ((track.pt() <= ptPidTofMinPi) && track.hasTPC() && (abs(track.tpcNSigmaPi()) < nSigmaTpcMaxPi)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPi) && track.hasTPC() && !track.hasTOF() && (abs(track.tpcNSigmaPi()) < nSigmaTpcMaxPi)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPi) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaPi()) < nSigmaTofMaxPi)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinPi) && track.hasTPC() && track.hasTOF()) {
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPi() * track.tpcNSigmaPi()) * (track.tofNSigmaPi() * track.tofNSigmaPi()));
+          if (abs(CombinednSigma) < nSigmaCombMaxPi) {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        break;
+      }
+      case kKPlus: {
+        if ((track.pt() <= ptPidTofMinKa) && track.hasTPC() && (abs(track.tpcNSigmaKa()) < nSigmaTpcMaxKa)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinKa) && track.hasTPC() && !track.hasTOF() && (abs(track.tpcNSigmaKa()) < nSigmaTpcMaxKa)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinKa) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaKa()) < nSigmaTofMaxKa)) {
+          return true;
+        } else if ((track.pt() > ptPidTofMinKa) && track.hasTPC() && track.hasTOF()) {
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaKa() * track.tpcNSigmaKa()) * (track.tofNSigmaKa() * track.tofNSigmaKa()));
+          if (abs(CombinednSigma) < nSigmaCombMaxKa) {
+            return true;
+          } else {
+            return false;
+          }
+        } else {
+          return false;
+        }
+        break;
+      }
+      default: {
+        LOGF(error, "ERROR: Species is not implemented");
+        return false;
+      }
+    }
+  }
+
   template <typename T1, typename T2>
   void fillHistograms(const T1& kfpTrackPi, const T1& kfpTrackKa, const T2& KFPion, const T2& KFKaon, const T2& KFDZero_PV, const T2& KFDZero, const T2& KFPV, const T2& KFDZero_DecayVtx, float cosThetaStar)
   {
@@ -742,22 +783,6 @@ struct qaKFParticle {
     histos.fill(HIST("EventsKF/covYZ"), kfpVertex.GetCovariance(4));
     histos.fill(HIST("EventsKF/covZZ"), kfpVertex.GetCovariance(5));
 
-    TrackSelectorPID selectorPion(kPiPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinPi, ptPidTpcMaxPi);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxPi, nSigmaTpcMaxPi);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxPi, nSigmaTpcCombinedMaxPi);
-    selectorPion.setRangePtTOF(ptPidTofMinPi, ptPidTofMaxPi);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxPi, nSigmaTofMaxPi);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxPi, nSigmaTofCombinedMaxPi);
-
-    TrackSelectorPID selectorKaon(kKPlus);
-    selectorKaon.setRangePtTPC(ptPidTpcMinKa, ptPidTpcMaxKa);
-    selectorKaon.setRangeNSigmaTPC(-nSigmaTpcMaxKa, nSigmaTpcMaxKa);
-    selectorKaon.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxKa, nSigmaTpcCombinedMaxKa);
-    selectorKaon.setRangePtTOF(ptPidTofMinKa, ptPidTofMaxKa);
-    selectorKaon.setRangeNSigmaTOF(-nSigmaTofMaxKa, nSigmaTofMaxKa);
-    selectorKaon.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxKa, nSigmaTofCombinedMaxKa);
-
     for (auto& [track1, track2] : combinations(soa::CombinationsStrictlyUpperIndexPolicy(tracks, tracks))) {
 
       histos.fill(HIST("DZeroCandTopo/Selections"), 3.f);
@@ -791,10 +816,10 @@ struct qaKFParticle {
       float TOFnSigmaNegKa = 0;
       int source = 0;
 
-      int pidKaonTr1 = selectorKaon.getStatusTrackPIDAll(track1);
-      int pidKaonTr2 = selectorKaon.getStatusTrackPIDAll(track2);
-      int pidPionTr1 = selectorPion.getStatusTrackPIDAll(track1);
-      int pidPionTr2 = selectorPion.getStatusTrackPIDAll(track2);
+      bool pidKaonTr1 = SelectPIDCombined(track1, kKPlus);
+      bool pidKaonTr2 = SelectPIDCombined(track2, kKPlus);
+      bool pidPionTr1 = SelectPIDCombined(track1, kPiPlus);
+      bool pidPionTr2 = SelectPIDCombined(track2, kPiPlus);
 
       if (track1.isPVContributor() || track2.isPVContributor()) {
         PVContributor = 1;
@@ -805,7 +830,7 @@ struct qaKFParticle {
       }
 
       /// Select D0 and D0bar candidates
-      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted) {
+      if (pidPionTr1 && pidKaonTr2) {
         if (track1.sign() == 1 && track2.sign() == -1) {
           CandD0 = true;
           source = 1;
@@ -828,10 +853,13 @@ struct qaKFParticle {
           continue;
         }
       }
-      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted) {
+      if (pidKaonTr1 && pidPionTr2) {
         if (track1.sign() == 1 && track2.sign() == -1) {
           CandD0bar = true;
           source = 2;
+          if (CandD0 == true) {
+            source = 3;
+          }
           kfpTrackNegPi = createKFPTrackFromTrack(track2);
           kfpTrackPosKa = createKFPTrackFromTrack(track1);
           TPCnSigmaNegPi = track2.tpcNSigmaPi();
@@ -841,6 +869,9 @@ struct qaKFParticle {
         } else if (track1.sign() == -1 && track2.sign() == 1) {
           CandD0 = true;
           source = 1;
+          if (CandD0bar == true) {
+            source = 3;
+          }
           kfpTrackPosPi = createKFPTrackFromTrack(track2);
           kfpTrackNegKa = createKFPTrackFromTrack(track1);
           TPCnSigmaPosPi = track2.tpcNSigmaPi();
@@ -854,9 +885,6 @@ struct qaKFParticle {
       if (!CandD0 && !CandD0bar) {
         histos.fill(HIST("DZeroCandTopo/Selections"), 9.f);
         continue;
-      }
-      if (CandD0 && CandD0bar) {
-        source = 3;
       }
 
       KFParticle KFPosPion(kfpTrackPosPi, 211);
@@ -990,22 +1018,6 @@ struct qaKFParticle {
     histos.fill(HIST("EventsKF/covYZ"), kfpVertex.GetCovariance(4));
     histos.fill(HIST("EventsKF/covZZ"), kfpVertex.GetCovariance(5));
 
-    TrackSelectorPID selectorPion(kPiPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinPi, ptPidTpcMaxPi);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxPi, nSigmaTpcMaxPi);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxPi, nSigmaTpcCombinedMaxPi);
-    selectorPion.setRangePtTOF(ptPidTofMinPi, ptPidTofMaxPi);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxPi, nSigmaTofMaxPi);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxPi, nSigmaTofCombinedMaxPi);
-
-    TrackSelectorPID selectorKaon(kKPlus);
-    selectorPion.setRangePtTPC(ptPidTpcMinKa, ptPidTpcMaxKa);
-    selectorPion.setRangeNSigmaTPC(-nSigmaTpcMaxKa, nSigmaTpcMaxKa);
-    selectorPion.setRangeNSigmaTPCCondTOF(-nSigmaTpcCombinedMaxKa, nSigmaTpcCombinedMaxKa);
-    selectorPion.setRangePtTOF(ptPidTofMinKa, ptPidTofMaxKa);
-    selectorPion.setRangeNSigmaTOF(-nSigmaTofMaxKa, nSigmaTofMaxKa);
-    selectorPion.setRangeNSigmaTOFCondTPC(-nSigmaTofCombinedMaxKa, nSigmaTofCombinedMaxKa);
-
     for (auto& [track1, track2] : combinations(soa::CombinationsStrictlyUpperIndexPolicy(tracks, tracks))) {
 
       histos.fill(HIST("DZeroCandTopo/Selections"), 3.f);
@@ -1120,10 +1132,10 @@ struct qaKFParticle {
       float TOFnSigmaPosKa = 0;
       float TOFnSigmaNegKa = 0;
 
-      int pidKaonTr1 = selectorKaon.getStatusTrackPIDAll(track1);
-      int pidKaonTr2 = selectorKaon.getStatusTrackPIDAll(track2);
-      int pidPionTr1 = selectorPion.getStatusTrackPIDAll(track1);
-      int pidPionTr2 = selectorPion.getStatusTrackPIDAll(track2);
+      bool pidKaonTr1 = SelectPIDCombined(track1, kKPlus);
+      bool pidKaonTr2 = SelectPIDCombined(track2, kKPlus);
+      bool pidPionTr1 = SelectPIDCombined(track1, kPiPlus);
+      bool pidPionTr2 = SelectPIDCombined(track2, kPiPlus);
 
       if (track1.isPVContributor() || track2.isPVContributor()) {
         PVContributor = 1;
@@ -1135,7 +1147,7 @@ struct qaKFParticle {
 
       int pdgMother = mcParticles.rawIteratorAt(indexRec - mcParticles.offset()).pdgCode();
       /// Select D0 and D0bar candidates
-      if (pidPionTr1 == TrackSelectorPID::Status::PIDAccepted && pidKaonTr2 == TrackSelectorPID::Status::PIDAccepted) {
+      if (pidPionTr1 && pidKaonTr2) {
         if (track1.sign() == 1 && track2.sign() == -1) {
           CandD0 = true;
           particle1 = track1.mcParticle();
@@ -1164,7 +1176,7 @@ struct qaKFParticle {
           continue;
         }
       }
-      if (pidKaonTr1 == TrackSelectorPID::Status::PIDAccepted && pidPionTr2 == TrackSelectorPID::Status::PIDAccepted) {
+      if (pidKaonTr1 && pidPionTr2) {
         if (track1.sign() == 1 && track2.sign() == -1) {
           CandD0bar = true;
           if (pdgMother == 421) {
