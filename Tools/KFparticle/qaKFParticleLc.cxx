@@ -390,7 +390,7 @@ struct qaKFParticle {
         } else if ((track.pt() > ptPidTofMinPi) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaPi()) < nSigmaTofMaxPi)) {
           return true;
         } else if ((track.pt() > ptPidTofMinPi) && track.hasTPC() && track.hasTOF()) {
-          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPi() * track.tpcNSigmaPi()) * (track.tofNSigmaPi() * track.tofNSigmaPi()));
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPi() * track.tpcNSigmaPi()) + (track.tofNSigmaPi() * track.tofNSigmaPi()));
           if (abs(CombinednSigma) < nSigmaCombMaxPi) {
             return true;
           } else {
@@ -409,7 +409,7 @@ struct qaKFParticle {
         } else if ((track.pt() > ptPidTofMinKa) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaKa()) < nSigmaTofMaxKa)) {
           return true;
         } else if ((track.pt() > ptPidTofMinKa) && track.hasTPC() && track.hasTOF()) {
-          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaKa() * track.tpcNSigmaKa()) * (track.tofNSigmaKa() * track.tofNSigmaKa()));
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaKa() * track.tpcNSigmaKa()) + (track.tofNSigmaKa() * track.tofNSigmaKa()));
           if (abs(CombinednSigma) < nSigmaCombMaxKa) {
             return true;
           } else {
@@ -428,7 +428,7 @@ struct qaKFParticle {
         } else if ((track.pt() > ptPidTofMinPr) && !track.hasTPC() && track.hasTOF() && (abs(track.tofNSigmaPr()) < nSigmaTofMaxPr)) {
           return true;
         } else if ((track.pt() > ptPidTofMinPr) && track.hasTPC() && track.hasTOF()) {
-          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPr() * track.tpcNSigmaPr()) * (track.tofNSigmaPr() * track.tofNSigmaPr()));
+          float CombinednSigma = 1. / sqrt(2) * sqrt((track.tpcNSigmaPr() * track.tpcNSigmaPr()) + (track.tofNSigmaPr() * track.tofNSigmaPr()));
           if (abs(CombinednSigma) < nSigmaCombMaxPr) {
             return true;
           } else {
