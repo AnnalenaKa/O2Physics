@@ -15,6 +15,11 @@ o2physics_add_dpl_workflow(qa-kfparticle
                            PUBLIC_LINK_LIBRARIES O2::Framework O2Physics::AnalysisCore O2::DCAFitter KFParticle::KFParticle
                            COMPONENT_NAME Analysis)
 
+o2physics_add_dpl_workflow(qa-kfparticle-lc
+                           SOURCES qaKFParticle.cxx
+                           PUBLIC_LINK_LIBRARIES O2::Framework O2Physics::AnalysisCore O2::DCAFitter KFParticle::KFParticle
+                           COMPONENT_NAME Analysis)
+
 o2physics_add_dpl_workflow(qa-kfeventtrack
                            SOURCES qaKFEventTrack.cxx
                            PUBLIC_LINK_LIBRARIES O2::Framework O2Physics::AnalysisCore O2::DCAFitter KFParticle::KFParticle
