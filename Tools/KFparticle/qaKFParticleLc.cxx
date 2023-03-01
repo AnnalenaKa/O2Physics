@@ -353,14 +353,6 @@ struct qaKFParticle {
     if (KFLc_PV.GetMass() < d_massMin || KFLc_PV.GetMass() > d_massMax) {
       return false;
     }
-    /// cosine pointing angle selection
-    if (cpaFromKF(KFLc_PV, KFPV) < d_cosPA) {
-      return false;
-    }
-    /// cosine pointing XY angle selection
-    if (cpaXYFromKF(KFLc_PV, KFPV) < d_cosPAXY) {
-      return false;
-    }
     /// decay length selection
     if (KFLc_PV.GetDecayLength() < d_decayLength) {
       return false;
