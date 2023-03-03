@@ -44,10 +44,11 @@ DECLARE_SOA_COLUMN(ETA, Eta, float);
 DECLARE_SOA_COLUMN(PHI, Phi, float);
 DECLARE_SOA_COLUMN(TPCSIGNAL, Tpcsignal, float);
 DECLARE_SOA_COLUMN(RUNNUMBER, Runnumber, float);
-DECLARE_SOA_COLUMN(TIMECOLL, TimeColl, double);
+DECLARE_SOA_COLUMN(TIMECOLL, TimeColl, long);
 DECLARE_SOA_COLUMN(TIMESTAMP, TimeStamp, double);
 DECLARE_SOA_COLUMN(TIMEDIFF, TimeDiff, double);
 DECLARE_SOA_COLUMN(BCID, BCid, int);
+DECLARE_SOA_COLUMN(TFID, Tfid, int);
 DECLARE_SOA_COLUMN(XPV, Xpv, float);
 DECLARE_SOA_COLUMN(YPV, Ypv, float);
 DECLARE_SOA_COLUMN(ZPV, Zpv, float);
@@ -96,7 +97,8 @@ DECLARE_SOA_TABLE(TreeCollisions, "AOD", "TREECOLLISIONS",
                   kfeventtrack::TIMECOLL,
                   kfeventtrack::TIMESTAMP,
                   kfeventtrack::TIMEDIFF,
-                  kfeventtrack::BCID);
+                  kfeventtrack::BCID,
+                  kfeventtrack::TFID);
 } // namespace o2::aod
 
 #endif // TOOLS_KFPARTICLE_QAKFEVENTTRACK_H_
