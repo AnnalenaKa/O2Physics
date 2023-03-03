@@ -38,7 +38,6 @@
 #include "Common/DataModel/EventSelection.h"
 #include "Common/DataModel/TrackSelectionTables.h"
 #include "Common/DataModel/PIDResponse.h"
-#include "Common/DataModel/Multiplicity.h"
 #include "Common/Core/trackUtilities.h"
 #include "Common/Core/TrackSelection.h"
 #include "Common/Core/TrackSelectionDefaults.h"
@@ -63,7 +62,7 @@ using namespace o2::framework;
 using namespace o2::framework::expressions;
 using namespace o2::dataformats;
 
-struct qaKFParticle {
+struct qaKFParticleLc {
 
   /// general steering settings
   Configurable<bool> isRun3{"isRun3", true, "Is Run3 dataset"};
@@ -146,7 +145,7 @@ struct qaKFParticle {
                        ((trackSelection.node() == 4) && requireQualityTracksInFilter()) ||
                        ((trackSelection.node() == 5) && requireTrackCutInFilter(TrackSelectionFlags::kInAcceptanceTracks));
 
-  using CollisionTableData = soa::Join<aod::Collisions, aod::EvSels, aod::Mults>;
+  using CollisionTableData = soa::Join<aod::Collisions, aod::EvSels>;
   using BigTracks = soa::Join<aod::Tracks, aod::TracksCov, aod::TracksExtra>;
   using BigTracksExtended = soa::Join<BigTracks, aod::TracksDCA>;
   using BigTracksPID = soa::Join<BigTracksExtended, aod::pidTPCFullEl, aod::pidTPCFullMu, aod::pidTPCFullPi, aod::pidTPCFullKa, aod::pidTPCFullPr, aod::pidTOFFullEl, aod::pidTOFFullMu, aod::pidTOFFullPi, aod::pidTOFFullKa, aod::pidTOFFullPr>;
@@ -619,10 +618,10 @@ struct qaKFParticle {
       }
     }
   }
-  PROCESS_SWITCH(qaKFParticle, processData, "process data", true);
+  PROCESS_SWITCH(qaKFParticleLc, processData, "process data", true);
 };
 
 WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
 {
-  return WorkflowSpec{adaptAnalysisTask<qaKFParticle>(cfgc)};
+  return WorkflowSpec{adaptAnalysisTask<qaKFParticleLc>(cfgc)};
 }

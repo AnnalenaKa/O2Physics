@@ -38,7 +38,6 @@
 #include "Common/DataModel/EventSelection.h"
 #include "Common/DataModel/TrackSelectionTables.h"
 #include "Common/DataModel/PIDResponse.h"
-#include "Common/DataModel/Multiplicity.h"
 #include "Common/Core/trackUtilities.h"
 #include "Common/Core/TrackSelection.h"
 #include "Common/Core/TrackSelectionDefaults.h"
@@ -143,7 +142,7 @@ struct qaKFParticle {
                        ((trackSelection.node() == 4) && requireQualityTracksInFilter()) ||
                        ((trackSelection.node() == 5) && requireTrackCutInFilter(TrackSelectionFlags::kInAcceptanceTracks));
 
-  using CollisionTableData = soa::Join<aod::Collisions, aod::EvSels, aod::Mults>;
+  using CollisionTableData = soa::Join<aod::Collisions, aod::EvSels>;
   using BigTracks = soa::Join<aod::Tracks, aod::TracksCov, aod::TracksExtra>;
   using BigTracksExtended = soa::Join<BigTracks, aod::TracksDCA>;
   using BigTracksPID = soa::Join<BigTracksExtended, aod::pidTPCFullEl, aod::pidTPCFullMu, aod::pidTPCFullPi, aod::pidTPCFullKa, aod::pidTPCFullPr, aod::pidTOFFullEl, aod::pidTOFFullMu, aod::pidTOFFullPi, aod::pidTOFFullKa, aod::pidTOFFullPr>;
@@ -788,8 +787,8 @@ struct qaKFParticle {
       histos.fill(HIST("DZeroCandTopo/Selections"), 3.f);
       histos.fill(HIST("DZeroCandTopo/Selections"), 3.f);
 
-      /// Apply single track selection
-      if (!isSelectedTracks(track1, track2)) {
+      / Apply single track selection if (!isSelectedTracks(track1, track2))
+      {
         continue;
       }
 
@@ -968,7 +967,7 @@ struct qaKFParticle {
 
   /// Process function for MC
   using CollisionTableMC = soa::Join<CollisionTableData, aod::McCollisionLabels>;
-  using CollisionTableDataMult = soa::Join<aod::Collisions, aod::Mults, aod::McCollisionLabels>;
+  using CollisionTableDataMult = soa::Join<aod::Collisions, aod::McCollisionLabels>;
   using TrackTableMC = soa::Join<TrackTableData, aod::McTrackLabels>;
   Preslice<aod::McCollisionLabels> perMcCollision = aod::mccollisionlabel::mcCollisionId;
   void processMC(CollisionTableMC::iterator const& collision, CollisionTableMC const& collisions, soa::Filtered<TrackTableMC> const& tracks, aod::McParticles const& mcParticles, aod::McCollisions const& mcCollisions, aod::BCsWithTimestamps const&)
